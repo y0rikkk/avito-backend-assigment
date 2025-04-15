@@ -10,6 +10,7 @@ from app.database import (
     get_db_connection,
     has_active_reception,
     get_active_reception_id,
+    get_last_product_id,
 )
 from app.security import create_access_token
 from app.schemas import *
@@ -199,6 +200,45 @@ def add_product(
             conn.rollback()
         raise HTTPException(
             status_code=500, detail=f"Ошибка при добавлении товара: {str(e)}"
+        )
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.post("/pvz/{pvz_id}/delete_last_product")
+def delete_last_product(
+    pvz_id: str,
+    role: str = Depends(get_current_role),
+):
+    if role != "employee":
+        raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
+
+    product_id = get_last_product_id(pvz_id)
+    if not product_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Нет товаров для удаления или отсутствует активная приёмка",
+        )
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM products WHERE id = %s RETURNING id", (product_id,))
+        deleted = cur.fetchone()
+        conn.commit()
+
+        # if not deleted:
+        #     raise HTTPException(status_code=404, detail="Товар не найден")
+
+        return {"message": f"Товар {deleted[0]} удалён"}
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Ошибка при удалении товара: {str(e)}"
         )
     finally:
         if conn:

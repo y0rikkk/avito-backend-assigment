@@ -71,3 +71,30 @@ def get_active_reception_id(pvz_id: str) -> str | None:
     finally:
         if conn:
             conn.close()
+
+
+def get_last_product_id(pvz_id: str) -> str | None:
+    """Возвращает ID последнего добавленного товара в активной приёмке ПВЗ или None."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT p.id 
+            FROM products p
+            JOIN receptions r ON p.reception_id = r.id
+            WHERE r.pvz_id = %s AND r.status = 'in_progress'
+            ORDER BY p.date_time DESC
+            LIMIT 1
+            """,
+            (pvz_id,),
+        )
+        result = cur.fetchone()
+        return result[0] if result else None
+    except Exception as e:
+        print(f"Ошибка при поиске последнего товара: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
