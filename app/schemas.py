@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Literal
+from typing import Literal, List
 
 
 class PVZCreate(BaseModel):
@@ -34,3 +34,23 @@ class ProductResponse(BaseModel):
     date_time: datetime
     type: str
     reception_id: str
+
+
+# Следующие 3 класса - для эндпоинта /pvz (GET)
+
+
+class ProductResponseData(BaseModel):
+    id: str
+    date_time: datetime
+    type: str
+
+
+class ReceptionResponseData(BaseModel):
+    id: str
+    date_time: datetime
+    status: str
+    products: List[ProductResponseData]
+
+
+class PVZResponseData(PVZResponse):
+    receptions: List[ReceptionResponseData]

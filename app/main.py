@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from jose import jwt
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 from app.config import settings
 from app.database import (
     init_db,
@@ -11,6 +12,7 @@ from app.database import (
     has_active_reception,
     get_active_reception_id,
     get_last_product_id,
+    get_pvz_list,
 )
 from app.security import create_access_token
 from app.schemas import *
@@ -293,3 +295,23 @@ def close_last_reception(
     finally:
         if conn:
             conn.close()
+
+
+@app.get("/pvz", response_model=List[PVZResponseData])
+def list_pvz(
+    start_date: Optional[datetime] = Query(
+        None, description="Начальная дата диапазона"
+    ),
+    end_date: Optional[datetime] = Query(None, description="Конечная дата диапазона"),
+    page: int = Query(1, ge=1, description="Номер страницы"),
+    limit: int = Query(10, ge=1, le=30, description="Количество элементов на странице"),
+    role: str = Depends(get_current_role),  # Проверка авторизации
+):
+
+    if role != "moderator" and role != "employee":
+        raise HTTPException(
+            status_code=403, detail="Только для модераторов и сотрудников"
+        )
+
+    pvz_data = get_pvz_list(start_date, end_date, page, limit)
+    return pvz_data

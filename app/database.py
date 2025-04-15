@@ -1,5 +1,6 @@
 import psycopg2
-from psycopg2 import sql
+from datetime import datetime
+from typing import List
 from app.config import settings
 
 
@@ -95,6 +96,100 @@ def get_last_product_id(pvz_id: str) -> str | None:
     except Exception as e:
         print(f"Ошибка при поиске последнего товара: {e}")
         return None
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_pvz_list(
+    start_date: datetime = None,
+    end_date: datetime = None,
+    page: int = 1,
+    limit: int = 10,
+) -> List[dict]:
+    """Возвращает список ПВЗ с приёмками и товарами, учитывая фильтры и пагинацию."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Базовый запрос
+        query = """
+        SELECT 
+            pvz.id AS pvz_id,
+            pvz.registration_date,
+            pvz.city,
+            r.id AS reception_id,
+            r.date_time AS reception_date,
+            r.status,
+            pr.id AS product_id,
+            pr.date_time AS product_date,
+            pr.type
+        FROM pvz
+        LEFT JOIN receptions r ON pvz.id = r.pvz_id
+        LEFT JOIN products pr ON r.id = pr.reception_id
+        """
+
+        # Условия фильтрации
+        conditions = []
+        params = []
+
+        if start_date:
+            conditions.append("r.date_time >= %s")
+            params.append(start_date)
+        if end_date:
+            conditions.append("r.date_time <= %s")
+            params.append(end_date)
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        # Сортировка и пагинация
+        query += """
+        ORDER BY pvz.registration_date DESC, r.date_time DESC
+        LIMIT %s OFFSET %s
+        """
+        params.extend([limit, (page - 1) * limit])
+
+        cur.execute(query, params)
+        rows = cur.fetchall()
+
+        # Форматирование результата
+        pvz_dict = {}
+        for row in rows:
+            pvz_id = row[0]
+            if pvz_id not in pvz_dict:
+                pvz_dict[pvz_id] = {
+                    "id": pvz_id,
+                    "registration_date": row[1],
+                    "city": row[2],
+                    "receptions": [],
+                }
+
+            if row[3]:  # Если есть приёмка
+                reception = next(
+                    (r for r in pvz_dict[pvz_id]["receptions"] if r["id"] == row[3]),
+                    None,
+                )
+                if not reception:
+                    reception = {
+                        "id": row[3],
+                        "date_time": row[4],
+                        "status": row[5],
+                        "products": [],
+                    }
+                    pvz_dict[pvz_id]["receptions"].append(reception)
+
+                if row[6]:  # Если есть товар
+                    reception["products"].append(
+                        {"id": row[6], "date_time": row[7], "type": row[8]}
+                    )
+
+        return list(pvz_dict.values())
+
+    except Exception as e:
+        print(f"Ошибка при получении списка ПВЗ: {e}")
+        return []
     finally:
         if conn:
             conn.close()
