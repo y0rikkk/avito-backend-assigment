@@ -35,6 +35,7 @@ def init_db():
 
 
 def has_active_reception(pvz_id: str) -> bool:
+    """Проверяет, есть ли у ПВЗ активная приёмка (in_progress)."""
     conn = None
     try:
         conn = get_db_connection()
@@ -47,6 +48,26 @@ def has_active_reception(pvz_id: str) -> bool:
     except Exception as e:
         print(f"Ошибка при проверке активной приёмки: {e}")
         return True  # В случае ошибки считаем, что приёмка есть (для безопасности)
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_active_reception_id(pvz_id: str) -> str | None:
+    """Возвращает ID активной приёмки (in_progress) для указанного ПВЗ или None."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id FROM receptions WHERE pvz_id = %s AND status = 'in_progress' LIMIT 1",
+            (pvz_id,),
+        )
+        result = cur.fetchone()
+        return result[0] if result else None
+    except Exception as e:
+        print(f"Ошибка при поиске активной приёмки: {e}")
+        return None
     finally:
         if conn:
             conn.close()

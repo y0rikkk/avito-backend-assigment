@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS pvz (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     registration_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    city VARCHAR(50) NOT NULL CHECK (city IN ('Moscow', 'Saint Petersburg', 'Kazan'))
+    city VARCHAR(50) NOT NULL CHECK (city IN ('Москва', 'Санкт-Петербург', 'Казань'))
 );
 
 
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS receptions (
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     date_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    type VARCHAR(50) NOT NULL CHECK (type IN ('Р­Р»РµРєС‚СЂРѕРЅРёРєР°', 'РћРґРµР¶РґР°', 'РћР±СѓРІСЊ')),
+    type VARCHAR(50) NOT NULL CHECK (type IN ('электроника', 'одежда', 'обувь')),
     reception_id UUID NOT NULL REFERENCES receptions(id),
     FOREIGN KEY (reception_id) REFERENCES receptions(id) ON DELETE CASCADE
 );

@@ -5,7 +5,12 @@ from jose import jwt
 import uuid
 from datetime import datetime, timezone
 from app.config import settings
-from app.database import init_db, get_db_connection, has_active_reception
+from app.database import (
+    init_db,
+    get_db_connection,
+    has_active_reception,
+    get_active_reception_id,
+)
 from app.security import create_access_token
 from app.schemas import *
 
@@ -60,7 +65,7 @@ def create_pvz(
     if role != "moderator":
         raise HTTPException(status_code=403, detail="Только для модераторов")
 
-    allowed_cities = ["Moscow", "Saint Petersburg", "Kazan"]
+    allowed_cities = ["Москва", "Санкт-Петербург", "Казань"]
     if pvz_data.city not in allowed_cities:
         raise HTTPException(
             status_code=400,
@@ -142,6 +147,58 @@ def create_reception(
             conn.rollback()
         raise HTTPException(
             status_code=500, detail=f"Ошибка при создании приёмки: {str(e)}"
+        )
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.post("/products", response_model=ProductResponse)
+def add_product(
+    product_data: ProductCreate,
+    role: str = Depends(get_current_role),
+):
+    if role != "employee":
+        raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
+
+    reception_id = get_active_reception_id(product_data.pvz_id)
+    if not reception_id:
+        raise HTTPException(
+            status_code=400,
+            detail="В этом ПВЗ нет активной приёмки. Сначала создайте её.",
+        )
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        product_id = str(uuid.uuid4())
+        date_time = datetime.now(timezone.utc)
+
+        cur.execute(
+            """
+            INSERT INTO products (id, date_time, type, reception_id)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, date_time, type, reception_id
+            """,
+            (product_id, date_time, product_data.type, reception_id),
+        )
+        result = cur.fetchone()
+        conn.commit()
+
+        return {
+            "id": result[0],
+            "date_time": result[1],
+            "type": result[2],
+            "reception_id": result[3],
+        }
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Ошибка при добавлении товара: {str(e)}"
         )
     finally:
         if conn:
