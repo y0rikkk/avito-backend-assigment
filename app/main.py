@@ -243,3 +243,53 @@ def delete_last_product(
     finally:
         if conn:
             conn.close()
+
+
+@app.post("/pvz/{pvz_id}/close_last_reception", response_model=ReceptionResponse)
+def close_last_reception(
+    pvz_id: str,
+    role: str = Depends(get_current_role),
+):
+    if role != "employee":
+        raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
+
+    reception_id = get_active_reception_id(pvz_id)
+    if not reception_id:
+        raise HTTPException(status_code=400, detail="Нет активной приёмки для закрытия")
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE receptions
+            SET status = 'close'
+            WHERE id = %s
+            RETURNING id, date_time, pvz_id, status
+            """,
+            (reception_id,),
+        )
+        result = cur.fetchone()
+        conn.commit()
+
+        # if not result:
+        #     raise HTTPException(status_code=404, detail="Приёмка не найдена")
+
+        return {
+            "id": result[0],
+            "date_time": result[1],
+            "pvz_id": result[2],
+            "status": result[3],
+        }
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Ошибка при закрытии приёмки: {str(e)}"
+        )
+    finally:
+        if conn:
+            conn.close()
