@@ -5,15 +5,16 @@ from jose import jwt
 import uuid
 from datetime import datetime, timezone
 from app.config import settings
-from app.database import init_db, get_db_connection
+from app.database import init_db, get_db_connection, has_active_reception
 from app.security import create_access_token
-from app.schemas import PVZCreate, PVZResponse
+from app.schemas import *
 
 app = FastAPI()
 
 security = HTTPBearer()
 
 
+# TODO переделать
 @app.on_event("startup")
 def startup_event():
     init_db()
@@ -35,19 +36,6 @@ async def home():
     return "hello world"
 
 
-@app.get("/test-db")
-def test_db():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT 1")
-        result = cur.fetchone()
-        conn.close()
-        return {"status": "success", "data": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 class DummyLoginRequest(BaseModel):
     role: str
 
@@ -62,18 +50,6 @@ def dummy_login(request: DummyLoginRequest):
 
     token = create_access_token(role=request.role)
     return {"access_token": token, "token_type": "bearer"}
-
-
-@app.get("/check-token")
-def check_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    try:
-        token = credentials.credentials
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        return {"role": payload["role"], "expires": payload["exp"]}
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Неверный токен")
 
 
 @app.post("/pvz", response_model=PVZResponse)
@@ -116,6 +92,57 @@ def create_pvz(
         if conn:
             conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.post("/receptions", response_model=ReceptionResponse)
+def create_reception(
+    reception_data: ReceptionCreate,
+    role: str = Depends(get_current_role),
+):
+    if role != "employee":
+        raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
+
+    if has_active_reception(reception_data.pvz_id):
+        raise HTTPException(
+            status_code=400,
+            detail="В этом ПВЗ уже есть активная приёмка. Закройте её перед созданием новой.",
+        )
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        reception_id = str(uuid.uuid4())
+        date_time = datetime.now(timezone.utc)
+
+        cur.execute(
+            """
+            INSERT INTO receptions (id, date_time, pvz_id, status)
+            VALUES (%s, %s, %s, 'in_progress')
+            RETURNING id, date_time, pvz_id, status
+            """,
+            (reception_id, date_time, reception_data.pvz_id),
+        )
+        result = cur.fetchone()
+        conn.commit()
+
+        return {
+            "id": result[0],
+            "date_time": result[1],
+            "pvz_id": result[2],
+            "status": result[3],
+        }
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Ошибка при создании приёмки: {str(e)}"
+        )
     finally:
         if conn:
             conn.close()

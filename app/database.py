@@ -32,3 +32,21 @@ def init_db():
     finally:
         if conn:
             conn.close()
+
+
+def has_active_reception(pvz_id: str) -> bool:
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT EXISTS (SELECT 1 FROM receptions WHERE pvz_id = %s AND status = 'in_progress')",
+            (pvz_id,),
+        )
+        return cur.fetchone()[0]
+    except Exception as e:
+        print(f"Ошибка при проверке активной приёмки: {e}")
+        return True  # В случае ошибки считаем, что приёмка есть (для безопасности)
+    finally:
+        if conn:
+            conn.close()
