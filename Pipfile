@@ -9,6 +9,8 @@ uvicorn = "*"
 psycopg2-binary = "*"
 pydantic-settings = "*"
 python-jose = {extras = ["cryptography"], version = "*"}
+pydantic = {extras = ["email"], version = "*"}
+bcrypt = "*"
 
 [dev-packages]
 

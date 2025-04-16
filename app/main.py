@@ -14,7 +14,7 @@ from app.database import (
     get_last_product_id,
     get_pvz_list,
 )
-from app.security import create_access_token
+from app.security import *
 from app.schemas import *
 
 app = FastAPI()
@@ -315,3 +315,88 @@ def list_pvz(
 
     pvz_data = get_pvz_list(start_date, end_date, page, limit)
     return pvz_data
+
+
+@app.post("/register", response_model=UserResponse)
+def register_user(user_data: UserRegister):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Проверяем, что email уникален
+        cur.execute("SELECT id FROM users WHERE email = %s", (user_data.email,))
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
+
+        if user_data.role not in ["employee", "moderator"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Недопустимая роль. Допустимые значения: 'employee', 'moderator'",
+            )
+
+        # Хешируем пароль
+        hashed_password = hash_password(user_data.password)
+
+        # Сохраняем пользователя
+        user_id = str(uuid.uuid4())
+        cur.execute(
+            """
+            INSERT INTO users (id, email, password_hash, role)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, email, role
+            """,
+            (user_id, user_data.email, hashed_password, user_data.role),
+        )
+        result = cur.fetchone()
+        conn.commit()
+
+        return {"id": result[0], "email": result[1], "role": result[2]}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при регистрации: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.post("/login", response_model=TokenResponse)
+def login_user(user_data: UserLogin):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Ищем пользователя по email
+        cur.execute(
+            "SELECT id, email, password_hash, role FROM users WHERE email = %s",
+            (user_data.email,),
+        )
+        user = cur.fetchone()
+
+        if not user or not verify_password(user_data.password, user[2]):
+            raise HTTPException(status_code=401, detail="Неверный email или пароль")
+
+        # Генерируем JWT-токен
+        token_data = {
+            "sub": user[0],  # user_id
+            "role": user[3],  # role
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
+        }
+        token = jwt.encode(
+            token_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+        )
+
+        return {"access_token": token, "token_type": "bearer"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при авторизации: {str(e)}")
+    finally:
+        if conn:
+            conn.close()

@@ -1,6 +1,28 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Literal, List
+
+
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str
+    role: str  # "employee" или "moderator"
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    role: str
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
 
 
 class PVZCreate(BaseModel):
