@@ -14,4 +14,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-# WITH ENCODING 'UTF8' LC_COLLATE='ru_RU.UTF8' LC_CTYPE='ru_RU.UTF8' TEMPLATE=template0;

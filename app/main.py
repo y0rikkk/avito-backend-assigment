@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from jose import jwt
@@ -16,6 +16,7 @@ from app.database import (
 )
 from app.security import *
 from app.schemas import *
+from app.logger import logger
 
 app = FastAPI()
 
@@ -321,6 +322,7 @@ def list_pvz(
 def register_user(user_data: UserRegister):
     conn = None
     try:
+        logger.info(f"Register attempt: email={user_data.email}, role={user_data.role}")
         conn = get_db_connection()
         cur = conn.cursor()
 
@@ -351,13 +353,16 @@ def register_user(user_data: UserRegister):
         result = cur.fetchone()
         conn.commit()
 
+        logger.info(f"User registered: id={result[0]}")
         return {"id": result[0], "email": result[1], "role": result[2]}
 
-    except HTTPException:
+    except HTTPException as e:
+        logger.warning(f"Register failed: {e.detail}")
         raise
     except Exception as e:
         if conn:
             conn.rollback()
+        logger.error(f"Register error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при регистрации: {str(e)}")
     finally:
         if conn:
@@ -368,6 +373,7 @@ def register_user(user_data: UserRegister):
 def login_user(user_data: UserLogin):
     conn = None
     try:
+        logger.info(f"Login attempt: email={user_data.email}")
         conn = get_db_connection()
         cur = conn.cursor()
 
@@ -391,11 +397,14 @@ def login_user(user_data: UserLogin):
             token_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM
         )
 
+        logger.info(f"User logged in: email={user_data.email}")
         return {"access_token": token, "token_type": "bearer"}
 
-    except HTTPException:
+    except HTTPException as e:
+        logger.warning(f"Login failed: {e.detail}")
         raise
     except Exception as e:
+        logger.error(f"Login error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при авторизации: {str(e)}")
     finally:
         if conn:

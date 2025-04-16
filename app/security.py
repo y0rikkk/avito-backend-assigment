@@ -14,15 +14,40 @@ def create_access_token(role: str) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def hash_password(password):
-    pwd_bytes = password.encode("utf-8")
+# def hash_password(password):
+#     password = password.encode("utf-8")
+#     salt = bcrypt.gensalt()
+#     hashed_password = bcrypt.hashpw(password=password, salt=salt)
+#     return hashed_password.decode("utf-8")
+
+
+# def verify_password(plain_password, hashed_password):
+#     return bcrypt.checkpw(
+#         password=plain_password.encode("utf-8"),
+#         hashed_password=hashed_password.encode("utf-8"),
+#     )
+
+
+from typing import Union
+
+
+def hash_password(password: Union[str, bytes]) -> str:
+
+    if isinstance(password, str):
+        password = password.encode("utf-8")
+
     salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password=pwd_bytes, salt=salt)
-    return hashed_password
+    hashed = bcrypt.hashpw(password, salt)
+    return hashed.decode("utf-8")
 
 
-def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(
-        password=plain_password.encode("utf-8"),
-        hashed_password=hashed_password.encode("utf-8"),
-    )
+def verify_password(
+    plain_password: Union[str, bytes], hashed_password: Union[str, bytes]
+) -> bool:
+
+    if isinstance(plain_password, str):
+        plain_password = plain_password.encode("utf-8")
+    if isinstance(hashed_password, str):
+        hashed_password = hashed_password.encode("utf-8")
+
+    return bcrypt.checkpw(plain_password, hashed_password)
