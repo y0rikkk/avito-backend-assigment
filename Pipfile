@@ -14,6 +14,8 @@ bcrypt = "*"
 pytest = "*"
 httpx = "*"
 requests = "*"
+prometheus-fastapi-instrumentator = "*"
+prometheus-client = "*"
 
 [dev-packages]
 pytest-cov = "*"

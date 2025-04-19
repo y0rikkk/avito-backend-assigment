@@ -3,8 +3,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 from jose import jwt
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
+from prometheus_client import make_asgi_app, start_http_server
 import uuid
-import requests
 import json
 from datetime import datetime, timezone
 from typing import Optional
@@ -19,6 +20,7 @@ from app.database import (
 )
 from app.security import *
 from app.schemas import *
+from app.metrics import *
 from app.logger import logger
 
 
@@ -45,6 +47,28 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+instrumentator = Instrumentator()
+instrumentator.add(
+    metrics.requests(
+        should_include_handler=False,
+        should_include_method=False,
+        should_include_status=False,
+        metric_doc="Total number of requests",
+    )
+)
+instrumentator.add(
+    metrics.latency(
+        should_include_handler=False,
+        should_include_method=False,
+        should_include_status=False,
+    )
+)
+instrumentator.instrument(app)
+
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+start_http_server(9000)
 
 
 def get_current_role(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -126,6 +150,7 @@ def create_pvz(
         result = cur.fetchone()
         conn.commit()
 
+        PVZ_CREATED.inc()
         return {"id": result[0], "registration_date": result[1], "city": result[2]}
 
     except Exception as e:
@@ -180,6 +205,7 @@ def create_reception(
         result = cur.fetchone()
         conn.commit()
 
+        RECEPTIONS_CREATED.inc()
         return {
             "id": result[0],
             "date_time": result[1],
@@ -242,6 +268,7 @@ def add_product(
         result = cur.fetchone()
         conn.commit()
 
+        PRODUCTS_ADDED.inc()
         return {
             "id": result[0],
             "date_time": result[1],
