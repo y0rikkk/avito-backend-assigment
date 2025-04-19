@@ -90,3 +90,15 @@
 2025-04-19 12:17:55 - backend - INFO - User logged in: email=user@example.com
 2025-04-19 12:17:58 - backend - INFO - Login attempt: email=user@example.com
 2025-04-19 12:17:58 - backend - WARNING - Login failed: Неверный email или пароль
+2025-04-19 15:24:28 - backend - INFO - Login attempt: email=user@example.com
+2025-04-19 15:24:29 - backend - INFO - User logged in: email=user@example.com
+2025-04-19 15:24:33 - backend - INFO - Login attempt: email=user@example.com
+2025-04-19 15:24:33 - backend - WARNING - Login failed: Неверный email или пароль
+2025-04-19 15:25:16 - backend - INFO - Login attempt: email=user@example.com
+2025-04-19 15:25:16 - backend - WARNING - Login failed: Неверный email или пароль
+2025-04-19 17:38:37 - backend - INFO - Register attempt: email=user@example.com, role=string
+2025-04-19 17:38:37 - backend - WARNING - Register failed: Email уже зарегистрирован
+2025-04-19 17:58:10 - backend - INFO - Login attempt: email=user@example.com
+2025-04-19 17:58:11 - backend - INFO - User logged in: email=user@example.com
+2025-04-19 19:16:01 - backend - INFO - Login attempt: email=user@examferfple.com
+2025-04-19 19:16:01 - backend - WARNING - Login failed: Неверный email или пароль

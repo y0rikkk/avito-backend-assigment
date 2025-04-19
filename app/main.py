@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException, Depends, Query, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 from jose import jwt
 import uuid
+import requests
+import json
 from datetime import datetime, timezone
 from typing import Optional
 from app.config import settings
@@ -23,9 +25,22 @@ from app.logger import logger
 security = HTTPBearer()
 
 
+def save_openapi_spec():
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    with open("openapi.json", "w", encoding="utf-8") as f:
+        json.dump(openapi_schema, f, indent=2, ensure_ascii=False)
+        print("Документация API обновлена")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    save_openapi_spec()
     yield
 
 
@@ -48,11 +63,14 @@ async def home():
     return "hello world"
 
 
-class DummyLoginRequest(BaseModel):
-    role: str
-
-
-@app.post("/dummyLogin")
+@app.post(
+    "/dummyLogin",
+    responses={
+        200: {"model": Token, "description": "Успешная авторизация"},
+        400: {"model": Error, "description": "Неверный запрос"},
+    },
+    response_model=Token,
+)
 def dummy_login(request: DummyLoginRequest):
     if request.role not in ["employee", "moderator"]:
         raise HTTPException(
@@ -61,10 +79,19 @@ def dummy_login(request: DummyLoginRequest):
         )
 
     token = create_access_token(role=request.role)
-    return {"access_token": token, "token_type": "bearer"}
+    return {"token": token}
 
 
-@app.post("/pvz", response_model=PVZResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/pvz",
+    response_model=PVZ,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        201: {"description": "ПВЗ создан"},
+        400: {"model": Error, "description": "Неверный запрос"},
+        403: {"model": Error, "description": "Доступ запрещен"},
+    },
+)
 def create_pvz(
     pvz_data: PVZCreate,
     connection=Depends(get_db),
@@ -108,7 +135,17 @@ def create_pvz(
 
 
 @app.post(
-    "/receptions", response_model=ReceptionResponse, status_code=status.HTTP_201_CREATED
+    "/receptions",
+    response_model=Reception,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        201: {"description": "Приемка создана"},
+        400: {
+            "model": Error,
+            "description": "Неверный запрос или есть незакрытая приемка",
+        },
+        403: {"model": Error, "description": "Доступ запрещен"},
+    },
 )
 def create_reception(
     reception_data: ReceptionCreate,
@@ -159,7 +196,17 @@ def create_reception(
 
 
 @app.post(
-    "/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED
+    "/products",
+    response_model=Product,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        201: {"description": "Товар добавлен"},
+        400: {
+            "model": Error,
+            "description": "Неверный запрос или нет активной приемки",
+        },
+        403: {"model": Error, "description": "Доступ запрещен"},
+    },
 )
 def add_product(
     product_data: ProductCreate,
@@ -210,7 +257,18 @@ def add_product(
         )
 
 
-@app.post("/pvz/{pvz_id}/delete_last_product", status_code=status.HTTP_200_OK)
+@app.post(
+    "/pvz/{pvz_id}/delete_last_product",
+    status_code=status.HTTP_200_OK,
+    responses={
+        200: {"description": "Товар удален"},
+        400: {
+            "model": Error,
+            "description": "Неверный запрос, нет активной приемки или нет товаров для удаления",
+        },
+        403: {"model": Error, "description": "Доступ запрещен"},
+    },
+)
 def delete_last_product(
     pvz_id: str,
     connection=Depends(get_db),
@@ -249,8 +307,13 @@ def delete_last_product(
 
 @app.post(
     "/pvz/{pvz_id}/close_last_reception",
-    response_model=ReceptionResponse,
+    response_model=Reception,
     status_code=status.HTTP_200_OK,
+    responses={
+        200: {"description": "Приемка закрыта"},
+        400: {"model": Error, "description": "Неверный запрос или приемка уже закрыта"},
+        403: {"model": Error, "description": "Доступ запрещен"},
+    },
 )
 def close_last_reception(
     pvz_id: str,
@@ -299,7 +362,11 @@ def close_last_reception(
         )
 
 
-@app.get("/pvz", response_model=List[PVZResponseData])
+@app.get(
+    "/pvz",
+    response_model=List[PVZNested],
+    status_code=status.HTTP_200_OK,
+)
 def list_pvz(
     connection=Depends(get_db),
     start_date: Optional[datetime] = Query(
@@ -320,7 +387,15 @@ def list_pvz(
     return pvz_data
 
 
-@app.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/register",
+    response_model=User,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        201: {"description": "Пользователь создан"},
+        400: {"model": Error, "description": "Неверный запрос"},
+    },
+)
 def register_user(user_data: UserRegister, connection=Depends(get_db)):
     conn = None
     try:
@@ -368,7 +443,15 @@ def register_user(user_data: UserRegister, connection=Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Ошибка при регистрации: {str(e)}")
 
 
-@app.post("/login", response_model=TokenResponse)
+@app.post(
+    "/login",
+    response_model=Token,
+    status_code=status.HTTP_200_OK,
+    responses={
+        200: {"description": "Успешная авторизация"},
+        401: {"model": Error, "description": "Неверные учетные данные"},
+    },
+)
 def login_user(user_data: UserLogin, connection=Depends(get_db)):
     conn = None
     try:
@@ -397,7 +480,8 @@ def login_user(user_data: UserLogin, connection=Depends(get_db)):
         )
 
         logger.info(f"User logged in: email={user_data.email}")
-        return {"access_token": token, "token_type": "bearer"}
+        # return {"access_token": token, "token_type": "bearer"}
+        return {"token": token}
 
     except HTTPException as e:
         logger.warning(f"Login failed: {e.detail}")

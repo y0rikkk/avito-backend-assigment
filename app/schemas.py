@@ -1,6 +1,14 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, SkipValidation
 from datetime import datetime
 from typing import Literal, List
+
+
+class DummyLoginRequest(BaseModel):
+    role: SkipValidation[Literal["employee", "moderator"]]
+
+
+class Error(BaseModel):
+    message: str
 
 
 class UserRegister(BaseModel):
@@ -9,7 +17,7 @@ class UserRegister(BaseModel):
     role: str  # "employee" или "moderator"
 
 
-class UserResponse(BaseModel):
+class User(BaseModel):
     id: str
     email: str
     role: str
@@ -20,16 +28,15 @@ class UserLogin(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str
+class Token(BaseModel):
+    token: str
 
 
 class PVZCreate(BaseModel):
     city: str  # "Москва", "Санкт-Петербург" или "Казань"
 
 
-class PVZResponse(BaseModel):
+class PVZ(BaseModel):
     id: str  # UUID в виде строки
     registration_date: datetime
     city: str
@@ -39,7 +46,7 @@ class ReceptionCreate(BaseModel):
     pvz_id: str  # UUID ПВЗ в виде строки
 
 
-class ReceptionResponse(BaseModel):
+class Reception(BaseModel):
     id: str
     date_time: datetime
     pvz_id: str
@@ -51,7 +58,7 @@ class ProductCreate(BaseModel):
     pvz_id: str  # UUID ПВЗ в виде строки
 
 
-class ProductResponse(BaseModel):
+class Product(BaseModel):
     id: str
     date_time: datetime
     type: str
@@ -61,18 +68,11 @@ class ProductResponse(BaseModel):
 # Следующие 3 класса - для эндпоинта /pvz (GET)
 
 
-class ProductResponseData(BaseModel):
-    id: str
-    date_time: datetime
-    type: str
+class ReceptionNested(BaseModel):
+    reception: Reception
+    products: List[Product]
 
 
-class ReceptionResponseData(BaseModel):
-    id: str
-    date_time: datetime
-    status: str
-    products: List[ProductResponseData]
-
-
-class PVZResponseData(PVZResponse):
-    receptions: List[ReceptionResponseData]
+class PVZNested(BaseModel):
+    pvz: PVZ
+    receptions: List[ReceptionNested]

@@ -68,7 +68,7 @@ def test_dummy_login_success():
     # Проверка успешного входа через dummy login
     response = client.post("/dummyLogin", json={"role": "moderator"})
     assert response.status_code == 200
-    assert "access_token" in response.json()
+    assert "token" in response.json()
 
 
 def test_dummy_login_invalid_role():
@@ -312,7 +312,7 @@ def test_login_success():
         "/login", json={"email": "moderator@example.com", "password": "123456"}
     )
     assert response.status_code == 200
-    assert "access_token" in response.json()
+    assert "token" in response.json()
 
 
 def test_login_invalid_password():

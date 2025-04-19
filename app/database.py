@@ -155,38 +155,64 @@ def get_pvz_list(
         cur.execute(query, params)
         rows = cur.fetchall()
 
-        # Форматирование результата
-        pvz_dict = {}
+        # Группировка данных
+        result = []
+        current_pvz = None
+        current_reception = None
+
         for row in rows:
-            pvz_id = row[0]
-            if pvz_id not in pvz_dict:
-                pvz_dict[pvz_id] = {
-                    "id": pvz_id,
-                    "registration_date": row[1],
-                    "city": row[2],
+            (
+                pvz_id,
+                reg_date,
+                city,
+                reception_id,
+                reception_date,
+                status,
+                product_id,
+                product_date,
+                product_type,
+            ) = row
+
+            # Если это новый ПВЗ
+            if not current_pvz or current_pvz["pvz"]["id"] != pvz_id:
+                current_pvz = {
+                    "pvz": {
+                        "id": pvz_id,
+                        "registration_date": reg_date.isoformat(),
+                        "city": city,
+                    },
                     "receptions": [],
                 }
+                result.append(current_pvz)
 
-            if row[3]:  # Если есть приёмка
-                reception = next(
-                    (r for r in pvz_dict[pvz_id]["receptions"] if r["id"] == row[3]),
-                    None,
-                )
-                if not reception:
-                    reception = {
-                        "id": row[3],
-                        "date_time": row[4],
-                        "status": row[5],
-                        "products": [],
+            # Если есть приёмка и она новая
+            if reception_id and (
+                not current_reception
+                or current_reception["reception"]["id"] != reception_id
+            ):
+                current_reception = {
+                    "reception": {
+                        "id": reception_id,
+                        "date_time": reception_date.isoformat(),
+                        "pvz_id": current_pvz["pvz"]["id"],
+                        "status": status,
+                    },
+                    "products": [],
+                }
+                current_pvz["receptions"].append(current_reception)
+
+            # Если есть товар
+            if product_id:
+                current_reception["products"].append(
+                    {
+                        "id": product_id,
+                        "date_time": product_date.isoformat(),
+                        "type": product_type,
+                        "reception_id": current_reception["reception"]["id"],
                     }
-                    pvz_dict[pvz_id]["receptions"].append(reception)
+                )
 
-                if row[6]:  # Если есть товар
-                    reception["products"].append(
-                        {"id": row[6], "date_time": row[7], "type": row[8]}
-                    )
-
-        return list(pvz_dict.values())
+        return result
 
     except Exception as e:
         print(f"Ошибка при получении списка ПВЗ: {e}")

@@ -13,6 +13,7 @@ pydantic = {extras = ["email"], version = "*"}
 bcrypt = "*"
 pytest = "*"
 httpx = "*"
+requests = "*"
 
 [dev-packages]
 pytest-cov = "*"

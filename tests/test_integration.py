@@ -110,7 +110,7 @@ def test_full_reception_flow(moderator_token, employee_token):
         headers={"Authorization": f"Bearer {employee_token}"},
     )
     assert db_response.status_code == 200
-    assert db_response.json()[0]["receptions"][0]["status"] == "close"
+    assert db_response.json()[0]["receptions"][0]["reception"]["status"] == "close"
     assert len(db_response.json()[0]["receptions"][0]["products"]) == 30
 
     url = f"/pvz?start_date={date}&page=2&limit=30"
@@ -119,5 +119,5 @@ def test_full_reception_flow(moderator_token, employee_token):
         headers={"Authorization": f"Bearer {employee_token}"},
     )
     assert db_response.status_code == 200
-    assert db_response.json()[0]["receptions"][0]["status"] == "close"
+    assert db_response.json()[0]["receptions"][0]["reception"]["status"] == "close"
     assert len(db_response.json()[0]["receptions"][0]["products"]) == 20
