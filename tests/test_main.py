@@ -64,9 +64,6 @@ def employee_token():
     return create_access_token(role="employee")
 
 
-# TODO СДЕЛАТЬ ВО ВСЕХ ТЕСТАХ ПОЛУЧЕНИЕ ТОКЕНОВ С ПОМОЩЬЮ ФИКСТУР ВЫШЕ
-
-
 def test_dummy_login_success():
     # Проверка успешного входа через dummy login
     response = client.post("/dummyLogin", json={"role": "moderator"})
@@ -87,7 +84,7 @@ def test_create_pvz_success(moderator_token):
         json={"city": "Москва"},
         headers={"Authorization": f"Bearer {moderator_token}"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert "id" in response.json()
 
 
@@ -119,7 +116,7 @@ def test_create_reception_success(employee_token):
         json={"pvz_id": pvz_id},
         headers={"Authorization": f"Bearer {employee_token}"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert response.json()["status"] == "in_progress"
 
 
@@ -153,7 +150,7 @@ def test_add_product_success(employee_token):
         json={"type": "одежда", "pvz_id": pvz_id},
         headers={"Authorization": f"Bearer {employee_token}"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert response.json()["type"] == "одежда"
 
 
@@ -283,7 +280,7 @@ def test_register_success():
         "/register",
         json={"email": "test@example.com", "password": "test123", "role": "moderator"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert response.json()["email"] == "test@example.com"
 
 

@@ -11,27 +11,32 @@
         "autoExecuteCommands": false,
         "icon": "terminal",
         "color": "terminal.ansiWhite",
-        "commands": [
-          ""
-        ]
+        "commands": [""]
       },
       {
         "name": "uvicorn",
         "autoExecuteCommands": false,
         "icon": "server",
         "color": "terminal.ansiBlue",
-        "commands": [
-          "uvicorn app.main:app --reload --port 8080"
-        ]
+        "commands": ["uvicorn app.main:app --reload --port 8080"]
       },
       {
         "name": "pytest",
         "autoExecuteCommands": false,
         "icon": "beaker",
         "color": "terminal.ansiGreen",
+        "commands": ["pytest tests -v"]
+      },
+      {
+        "name": "pytest-cov",
+        "autoExecuteCommands": false,
+        "icon": "percentage",
+        "color": "terminal.ansiRed",
         "commands": [
-          "pytest tests/test_main.py -v"
-        ]
+          "pytest --cov=app --cov-report=html tests -v",
+          "start htmlcov/index.html"
+        ],
+        "joinOperator": ";"
       }
     ]
   }

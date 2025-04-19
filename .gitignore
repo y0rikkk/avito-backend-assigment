@@ -1,0 +1,8 @@
+.vscode/
+.pytest_cache/
+__pycache__/
+app/__pycache__/
+htmlcov/
+logs/
+tests/__pycache__/
+.coverage

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Query, Request
+from fastapi import FastAPI, HTTPException, Depends, Query, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
@@ -64,7 +64,7 @@ def dummy_login(request: DummyLoginRequest):
     return {"access_token": token, "token_type": "bearer"}
 
 
-@app.post("/pvz", response_model=PVZResponse)
+@app.post("/pvz", response_model=PVZResponse, status_code=status.HTTP_201_CREATED)
 def create_pvz(
     pvz_data: PVZCreate,
     connection=Depends(get_db),
@@ -107,7 +107,9 @@ def create_pvz(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/receptions", response_model=ReceptionResponse)
+@app.post(
+    "/receptions", response_model=ReceptionResponse, status_code=status.HTTP_201_CREATED
+)
 def create_reception(
     reception_data: ReceptionCreate,
     connection=Depends(get_db),
@@ -156,7 +158,9 @@ def create_reception(
         )
 
 
-@app.post("/products", response_model=ProductResponse)
+@app.post(
+    "/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED
+)
 def add_product(
     product_data: ProductCreate,
     connection=Depends(get_db),
@@ -206,7 +210,7 @@ def add_product(
         )
 
 
-@app.post("/pvz/{pvz_id}/delete_last_product")
+@app.post("/pvz/{pvz_id}/delete_last_product", status_code=status.HTTP_200_OK)
 def delete_last_product(
     pvz_id: str,
     connection=Depends(get_db),
@@ -243,7 +247,11 @@ def delete_last_product(
         )
 
 
-@app.post("/pvz/{pvz_id}/close_last_reception", response_model=ReceptionResponse)
+@app.post(
+    "/pvz/{pvz_id}/close_last_reception",
+    response_model=ReceptionResponse,
+    status_code=status.HTTP_200_OK,
+)
 def close_last_reception(
     pvz_id: str,
     connection=Depends(get_db),
@@ -312,7 +320,7 @@ def list_pvz(
     return pvz_data
 
 
-@app.post("/register", response_model=UserResponse)
+@app.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user_data: UserRegister, connection=Depends(get_db)):
     conn = None
     try:
