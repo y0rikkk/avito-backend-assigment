@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 from jose import jwt
 import uuid
 from datetime import datetime, timezone
@@ -8,25 +9,27 @@ from typing import Optional
 from app.config import settings
 from app.database import (
     init_db,
-    get_db_connection,
     has_active_reception,
     get_active_reception_id,
     get_last_product_id,
     get_pvz_list,
+    get_db,
 )
 from app.security import *
 from app.schemas import *
 from app.logger import logger
 
-app = FastAPI()
 
 security = HTTPBearer()
 
 
-# TODO переделать
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 def get_current_role(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -64,6 +67,7 @@ def dummy_login(request: DummyLoginRequest):
 @app.post("/pvz", response_model=PVZResponse)
 def create_pvz(
     pvz_data: PVZCreate,
+    connection=Depends(get_db),
     role: str = Depends(get_current_role),
 ):
     if role != "moderator":
@@ -78,7 +82,7 @@ def create_pvz(
 
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
 
         pvz_id = str(uuid.uuid4())
@@ -101,20 +105,18 @@ def create_pvz(
         if conn:
             conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if conn:
-            conn.close()
 
 
 @app.post("/receptions", response_model=ReceptionResponse)
 def create_reception(
     reception_data: ReceptionCreate,
+    connection=Depends(get_db),
     role: str = Depends(get_current_role),
 ):
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
-    if has_active_reception(reception_data.pvz_id):
+    if has_active_reception(connection, reception_data.pvz_id):
         raise HTTPException(
             status_code=400,
             detail="В этом ПВЗ уже есть активная приёмка. Закройте её перед созданием новой.",
@@ -122,7 +124,7 @@ def create_reception(
 
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
 
         reception_id = str(uuid.uuid4())
@@ -152,20 +154,18 @@ def create_reception(
         raise HTTPException(
             status_code=500, detail=f"Ошибка при создании приёмки: {str(e)}"
         )
-    finally:
-        if conn:
-            conn.close()
 
 
 @app.post("/products", response_model=ProductResponse)
 def add_product(
     product_data: ProductCreate,
+    connection=Depends(get_db),
     role: str = Depends(get_current_role),
 ):
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
-    reception_id = get_active_reception_id(product_data.pvz_id)
+    reception_id = get_active_reception_id(connection, product_data.pvz_id)
     if not reception_id:
         raise HTTPException(
             status_code=400,
@@ -174,7 +174,7 @@ def add_product(
 
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
 
         product_id = str(uuid.uuid4())
@@ -204,20 +204,18 @@ def add_product(
         raise HTTPException(
             status_code=500, detail=f"Ошибка при добавлении товара: {str(e)}"
         )
-    finally:
-        if conn:
-            conn.close()
 
 
 @app.post("/pvz/{pvz_id}/delete_last_product")
 def delete_last_product(
     pvz_id: str,
+    connection=Depends(get_db),
     role: str = Depends(get_current_role),
 ):
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
-    product_id = get_last_product_id(pvz_id)
+    product_id = get_last_product_id(connection, pvz_id)
     if not product_id:
         raise HTTPException(
             status_code=400,
@@ -226,7 +224,7 @@ def delete_last_product(
 
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
         cur.execute("DELETE FROM products WHERE id = %s RETURNING id", (product_id,))
         deleted = cur.fetchone()
@@ -243,26 +241,24 @@ def delete_last_product(
         raise HTTPException(
             status_code=500, detail=f"Ошибка при удалении товара: {str(e)}"
         )
-    finally:
-        if conn:
-            conn.close()
 
 
 @app.post("/pvz/{pvz_id}/close_last_reception", response_model=ReceptionResponse)
 def close_last_reception(
     pvz_id: str,
+    connection=Depends(get_db),
     role: str = Depends(get_current_role),
 ):
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
-    reception_id = get_active_reception_id(pvz_id)
+    reception_id = get_active_reception_id(connection, pvz_id)
     if not reception_id:
         raise HTTPException(status_code=400, detail="Нет активной приёмки для закрытия")
 
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
 
         cur.execute(
@@ -293,13 +289,11 @@ def close_last_reception(
         raise HTTPException(
             status_code=500, detail=f"Ошибка при закрытии приёмки: {str(e)}"
         )
-    finally:
-        if conn:
-            conn.close()
 
 
 @app.get("/pvz", response_model=List[PVZResponseData])
 def list_pvz(
+    connection=Depends(get_db),
     start_date: Optional[datetime] = Query(
         None, description="Начальная дата диапазона"
     ),
@@ -314,16 +308,16 @@ def list_pvz(
             status_code=403, detail="Только для модераторов и сотрудников"
         )
 
-    pvz_data = get_pvz_list(start_date, end_date, page, limit)
+    pvz_data = get_pvz_list(connection, start_date, end_date, page, limit)
     return pvz_data
 
 
 @app.post("/register", response_model=UserResponse)
-def register_user(user_data: UserRegister):
+def register_user(user_data: UserRegister, connection=Depends(get_db)):
     conn = None
     try:
         logger.info(f"Register attempt: email={user_data.email}, role={user_data.role}")
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
 
         # Проверяем, что email уникален
@@ -364,17 +358,14 @@ def register_user(user_data: UserRegister):
             conn.rollback()
         logger.error(f"Register error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при регистрации: {str(e)}")
-    finally:
-        if conn:
-            conn.close()
 
 
 @app.post("/login", response_model=TokenResponse)
-def login_user(user_data: UserLogin):
+def login_user(user_data: UserLogin, connection=Depends(get_db)):
     conn = None
     try:
         logger.info(f"Login attempt: email={user_data.email}")
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
 
         # Ищем пользователя по email
@@ -406,6 +397,3 @@ def login_user(user_data: UserLogin):
     except Exception as e:
         logger.error(f"Login error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при авторизации: {str(e)}")
-    finally:
-        if conn:
-            conn.close()

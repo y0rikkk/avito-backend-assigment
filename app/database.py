@@ -4,7 +4,7 @@ from typing import List
 from app.config import settings
 
 
-def get_db_connection():
+def get_db():
     conn = psycopg2.connect(
         host=settings.DB_HOST,
         port=settings.DB_PORT,
@@ -12,13 +12,22 @@ def get_db_connection():
         password=settings.DB_PASSWORD,
         dbname=settings.DB_NAME,
     )
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def init_db():
     conn = None
     try:
-        conn = get_db_connection()
+        conn = psycopg2.connect(
+            host=settings.DB_HOST,
+            port=settings.DB_PORT,
+            user=settings.DB_USER,
+            password=settings.DB_PASSWORD,
+            dbname=settings.DB_NAME,
+        )
         cur = conn.cursor()
 
         with open("app/init_db.sql", "r") as f:
@@ -35,11 +44,11 @@ def init_db():
             conn.close()
 
 
-def has_active_reception(pvz_id: str) -> bool:
+def has_active_reception(connection, pvz_id: str) -> bool:
     """Проверяет, есть ли у ПВЗ активная приёмка (in_progress)."""
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
         cur.execute(
             "SELECT EXISTS (SELECT 1 FROM receptions WHERE pvz_id = %s AND status = 'in_progress')",
@@ -47,18 +56,15 @@ def has_active_reception(pvz_id: str) -> bool:
         )
         return cur.fetchone()[0]
     except Exception as e:
-        print(f"Ошибка при проверке активной приёмки: {e}")
+        print(f"Ошибка при проверке активной приёмки: {e}")  # TODO поменять
         return True  # В случае ошибки считаем, что приёмка есть (для безопасности)
-    finally:
-        if conn:
-            conn.close()
 
 
-def get_active_reception_id(pvz_id: str) -> str | None:
+def get_active_reception_id(connection, pvz_id: str) -> str | None:
     """Возвращает ID активной приёмки (in_progress) для указанного ПВЗ или None."""
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
         cur.execute(
             "SELECT id FROM receptions WHERE pvz_id = %s AND status = 'in_progress' LIMIT 1",
@@ -69,16 +75,13 @@ def get_active_reception_id(pvz_id: str) -> str | None:
     except Exception as e:
         print(f"Ошибка при поиске активной приёмки: {e}")
         return None
-    finally:
-        if conn:
-            conn.close()
 
 
-def get_last_product_id(pvz_id: str) -> str | None:
+def get_last_product_id(connection, pvz_id: str) -> str | None:
     """Возвращает ID последнего добавленного товара в активной приёмке ПВЗ или None."""
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
         cur.execute(
             """
@@ -96,12 +99,10 @@ def get_last_product_id(pvz_id: str) -> str | None:
     except Exception as e:
         print(f"Ошибка при поиске последнего товара: {e}")
         return None
-    finally:
-        if conn:
-            conn.close()
 
 
 def get_pvz_list(
+    connection,
     start_date: datetime = None,
     end_date: datetime = None,
     page: int = 1,
@@ -110,7 +111,7 @@ def get_pvz_list(
     """Возвращает список ПВЗ с приёмками и товарами, учитывая фильтры и пагинацию."""
     conn = None
     try:
-        conn = get_db_connection()
+        conn = connection
         cur = conn.cursor()
 
         # Базовый запрос
@@ -190,6 +191,3 @@ def get_pvz_list(
     except Exception as e:
         print(f"Ошибка при получении списка ПВЗ: {e}")
         return []
-    finally:
-        if conn:
-            conn.close()
