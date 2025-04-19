@@ -2,6 +2,8 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.database import get_db
 from app.config import settings
+from app.security import create_access_token
+from app.logger import logger
 import psycopg2
 import pytest
 
@@ -26,6 +28,13 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
+def disable_app_logger():
+    logger.disabled = True
+    yield
+    logger.disabled = False
+
+
+@pytest.fixture(autouse=True)
 def clean_db():
     """Фикстура для очистки всех таблиц после теста."""
     conn = psycopg2.connect(
@@ -45,6 +54,19 @@ def clean_db():
     conn.close()
 
 
+@pytest.fixture
+def moderator_token():
+    return create_access_token(role="moderator")
+
+
+@pytest.fixture
+def employee_token():
+    return create_access_token(role="employee")
+
+
+# TODO СДЕЛАТЬ ВО ВСЕХ ТЕСТАХ ПОЛУЧЕНИЕ ТОКЕНОВ С ПОМОЩЬЮ ФИКСТУР ВЫШЕ
+
+
 def test_dummy_login_success():
     # Проверка успешного входа через dummy login
     response = client.post("/dummyLogin", json={"role": "moderator"})
@@ -58,30 +80,29 @@ def test_dummy_login_invalid_role():
     assert response.status_code == 400
 
 
-def test_create_pvz():
-    # Получаем токен модератора
-    login_response = client.post("/dummyLogin", json={"role": "moderator"})
-    token = login_response.json()["access_token"]
-
+def test_create_pvz_success(moderator_token):
     # Успешное создание ПВЗ
     response = client.post(
-        "/pvz", json={"city": "Москва"}, headers={"Authorization": f"Bearer {token}"}
+        "/pvz",
+        json={"city": "Москва"},
+        headers={"Authorization": f"Bearer {moderator_token}"},
     )
     assert response.status_code == 200
     assert "id" in response.json()
 
+
+def test_create_pvz_invalid_city(moderator_token):
     # Попытка создать ПВЗ с недопустимым городом
     response = client.post(
         "/pvz",
         json={"city": "Владивосток"},
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {moderator_token}"},
     )
     assert response.status_code == 400
 
+
+def test_create_pvz_invalid_role(employee_token):
     # Попытка создать ПВЗ без прав (employee)
-    employee_token = client.post("/dummyLogin", json={"role": "employee"}).json()[
-        "access_token"
-    ]
     response = client.post(
         "/pvz",
         json={"city": "Москва"},
@@ -90,24 +111,9 @@ def test_create_pvz():
     assert response.status_code == 403
 
 
-def test_create_reception():
-    # Создаём ПВЗ (от имени модератора)
-    moderator_token = client.post("/dummyLogin", json={"role": "moderator"}).json()[
-        "access_token"
-    ]
-    pvz_response = client.post(
-        "/pvz",
-        json={"city": "Москва"},
-        headers={"Authorization": f"Bearer {moderator_token}"},
-    )
-    pvz_id = pvz_response.json()["id"]
-
-    # Получаем токен сотрудника
-    employee_token = client.post("/dummyLogin", json={"role": "employee"}).json()[
-        "access_token"
-    ]
-
+def test_create_reception_success(employee_token):
     # Успешное создание приёмки
+    pvz_id = "44444444-4444-4444-4444-444444444444"
     response = client.post(
         "/receptions",
         json={"pvz_id": pvz_id},
@@ -116,7 +122,10 @@ def test_create_reception():
     assert response.status_code == 200
     assert response.json()["status"] == "in_progress"
 
+
+def test_create_second_reception(employee_token):
     # Попытка создать вторую приёмку (должна быть ошибка)
+    pvz_id = "55555555-5555-5555-5555-555555555555"
     response = client.post(
         "/receptions",
         json={"pvz_id": pvz_id},
@@ -124,6 +133,9 @@ def test_create_reception():
     )
     assert response.status_code == 400
 
+
+def test_create_reception_invalid_role(moderator_token):
+    pvz_id = "44444444-4444-4444-4444-444444444444"
     # Попытка создать приёмку без прав (модератором)
     response = client.post(
         "/receptions",
@@ -133,28 +145,9 @@ def test_create_reception():
     assert response.status_code == 403
 
 
-def test_add_product():
-    # Создаём ПВЗ и приёмку
-    moderator_token = client.post("/dummyLogin", json={"role": "moderator"}).json()[
-        "access_token"
-    ]
-    pvz_response = client.post(
-        "/pvz",
-        json={"city": "Москва"},
-        headers={"Authorization": f"Bearer {moderator_token}"},
-    )
-    pvz_id = pvz_response.json()["id"]
-
-    employee_token = client.post("/dummyLogin", json={"role": "employee"}).json()[
-        "access_token"
-    ]
-    reception_response = client.post(
-        "/receptions",
-        json={"pvz_id": pvz_id},
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
-
+def test_add_product_success(employee_token):
     # Успешное добавление товара
+    pvz_id = "55555555-5555-5555-5555-555555555555"
     response = client.post(
         "/products",
         json={"type": "одежда", "pvz_id": pvz_id},
@@ -163,11 +156,32 @@ def test_add_product():
     assert response.status_code == 200
     assert response.json()["type"] == "одежда"
 
-    # Попытка добавить товар без активной приёмки (закроем приёмку)
-    client.post(
-        f"/pvz/{pvz_id}/close_last_reception",
+
+def test_add_product_invalid_type(employee_token):
+    # Попытка добавить товар с неправильной категорией
+    pvz_id = "55555555-5555-5555-5555-555555555555"
+    response = client.post(
+        "/products",
+        json={"type": "еда", "pvz_id": pvz_id},
         headers={"Authorization": f"Bearer {employee_token}"},
     )
+    assert response.status_code == 400
+
+
+def test_add_product_invalid_type(moderator_token):
+    # Попытка добавить товар с неправильной ролью (модератор)
+    pvz_id = "55555555-5555-5555-5555-555555555555"
+    response = client.post(
+        "/products",
+        json={"type": "одежда", "pvz_id": pvz_id},
+        headers={"Authorization": f"Bearer {moderator_token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_add_product_in_closed_reception(employee_token):
+    # Попытка добавить товар без активной приёмки
+    pvz_id = "44444444-4444-4444-4444-444444444444"
     response = client.post(
         "/products",
         json={"type": "электроника", "pvz_id": pvz_id},
@@ -176,52 +190,20 @@ def test_add_product():
     assert response.status_code == 400
 
 
-def test_delete_last_product():
-    # Создаём ПВЗ, приёмку и добавляем товары
-    moderator_token = client.post("/dummyLogin", json={"role": "moderator"}).json()[
-        "access_token"
-    ]
-    pvz_response = client.post(
-        "/pvz",
-        json={"city": "Москва"},
-        headers={"Authorization": f"Bearer {moderator_token}"},
-    )
-    pvz_id = pvz_response.json()["id"]
-
-    employee_token = client.post("/dummyLogin", json={"role": "employee"}).json()[
-        "access_token"
-    ]
-    client.post(
-        "/receptions",
-        json={"pvz_id": pvz_id},
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
-
-    # Добавляем 2 товара
-    client.post(
-        "/products",
-        json={"type": "одежда", "pvz_id": pvz_id},
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
-    client.post(
-        "/products",
-        json={"type": "электроника", "pvz_id": pvz_id},
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
-
-    # Удаляем последний товар (электроника)
+def test_delete_last_product_success(employee_token):
+    # Удаляем последний товар
+    pvz_id = "55555555-5555-5555-5555-555555555555"
     response = client.post(
         f"/pvz/{pvz_id}/delete_last_product",
         headers={"Authorization": f"Bearer {employee_token}"},
     )
     assert response.status_code == 200
-    assert "электроника" not in response.text  # Проверяем, что удалён последний
+    assert "cccccccc-cccc-cccc-cccc-cccccccccccc" in response.text
 
-    # Попытка удалить из закрытой приёмки
-    client.post(
-        f"/pvz/{pvz_id}/close_last_reception",
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
+
+def test_delete_last_product_no_product_available(employee_token):
+    # Попытка удалить последний товар из пустой приемки
+    pvz_id = "66666666-6666-6666-6666-666666666666"
     response = client.post(
         f"/pvz/{pvz_id}/delete_last_product",
         headers={"Authorization": f"Bearer {employee_token}"},
@@ -229,29 +211,29 @@ def test_delete_last_product():
     assert response.status_code == 400
 
 
-def test_close_last_reception():
-    # Создаём ПВЗ и приёмку
-    moderator_token = client.post("/dummyLogin", json={"role": "moderator"}).json()[
-        "access_token"
-    ]
-    pvz_response = client.post(
-        "/pvz",
-        json={"city": "Москва"},
+def test_delete_last_product_invalid_role(moderator_token):
+    # Попытка удалить последний товар с неправильной ролью (модератор)
+    pvz_id = "55555555-5555-5555-5555-555555555555"
+    response = client.post(
+        f"/pvz/{pvz_id}/delete_last_product",
         headers={"Authorization": f"Bearer {moderator_token}"},
     )
-    pvz_id = pvz_response.json()["id"]
+    assert response.status_code == 403
 
-    employee_token = client.post("/dummyLogin", json={"role": "employee"}).json()[
-        "access_token"
-    ]
-    reception_response = client.post(
-        "/receptions",
-        json={"pvz_id": pvz_id},
+
+def test_delete_last_product_reception_closed(employee_token):
+    # Попытка удалить из закрытой приёмки
+    pvz_id = "44444444-4444-4444-4444-444444444444"
+    response = client.post(
+        f"/pvz/{pvz_id}/delete_last_product",
         headers={"Authorization": f"Bearer {employee_token}"},
     )
-    reception_id = reception_response.json()["id"]
+    assert response.status_code == 400
 
+
+def test_close_last_reception_success(employee_token):
     # Успешное закрытие приёмки
+    pvz_id = "55555555-5555-5555-5555-555555555555"
     response = client.post(
         f"/pvz/{pvz_id}/close_last_reception",
         headers={"Authorization": f"Bearer {employee_token}"},
@@ -259,7 +241,20 @@ def test_close_last_reception():
     assert response.status_code == 200
     assert response.json()["status"] == "close"
 
+
+def test_close_last_reception_invalid_role(moderator_token):
+    # Попытка закрыть приёмку с неправильной ролью (модератор)
+    pvz_id = "55555555-5555-5555-5555-555555555555"
+    response = client.post(
+        f"/pvz/{pvz_id}/close_last_reception",
+        headers={"Authorization": f"Bearer {moderator_token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_close_last_reception_already_closed(employee_token):
     # Попытка закрыть уже закрытую приёмку
+    pvz_id = "44444444-4444-4444-4444-444444444444"
     response = client.post(
         f"/pvz/{pvz_id}/close_last_reception",
         headers={"Authorization": f"Bearer {employee_token}"},
@@ -267,47 +262,23 @@ def test_close_last_reception():
     assert response.status_code == 400
 
 
-def test_get_pvz_list():
-    # Создаём тестовые данные
-    moderator_token = client.post("/dummyLogin", json={"role": "moderator"}).json()[
-        "access_token"
-    ]
-    pvz_response = client.post(
-        "/pvz",
-        json={"city": "Москва"},
-        headers={"Authorization": f"Bearer {moderator_token}"},
-    )
-    pvz_id = pvz_response.json()["id"]
-
-    employee_token = client.post("/dummyLogin", json={"role": "employee"}).json()[
-        "access_token"
-    ]
-    reception_response = client.post(
-        "/receptions",
-        json={"pvz_id": pvz_id},
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
-    client.post(
-        "/products",
-        json={"type": "электроника", "pvz_id": pvz_id},
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
-    client.post(
-        f"/pvz/{pvz_id}/close_last_reception",
-        headers={"Authorization": f"Bearer {employee_token}"},
-    )
-
-    # Запрос списка
+def test_get_pvz_list_success(moderator_token):
+    # Запрос списка пвз
     response = client.get(
         "/pvz", headers={"Authorization": f"Bearer {moderator_token}"}
     )
     assert response.status_code == 200
-    assert len(response.json()) > 0
-    assert response.json()[0]["id"] == pvz_id
+    assert len(response.json()) == 3
 
 
-def test_register_and_login():
-    # Регистрация
+def test_get_pvz_list_unauthorized():
+    # Запрос списка пвз без авторизации
+    response = client.get("/pvz")
+    assert response.status_code == 403
+
+
+def test_register_success():
+    # Успешная регистрация
     response = client.post(
         "/register",
         json={"email": "test@example.com", "password": "test123", "role": "moderator"},
@@ -315,15 +286,48 @@ def test_register_and_login():
     assert response.status_code == 200
     assert response.json()["email"] == "test@example.com"
 
+
+def test_register_invalid_role():
+    # Попытка регистарции с неправильной ролью
+    response = client.post(
+        "/register",
+        json={"email": "test@example.com", "password": "test123", "role": "client"},
+    )
+    assert response.status_code == 400
+
+
+def test_register_email_already_taken():
+    # Попытка регистарции уже занятого email
+    response = client.post(
+        "/register",
+        json={
+            "email": "moderator@example.com",
+            "password": "test123",
+            "role": "moderator",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_login_success():
     # Логин с правильным паролем
     response = client.post(
-        "/login", json={"email": "test@example.com", "password": "test123"}
+        "/login", json={"email": "moderator@example.com", "password": "123456"}
     )
     assert response.status_code == 200
     assert "access_token" in response.json()
 
+
+def test_login_invalid_password():
     # Логин с неверным паролем
     response = client.post(
-        "/login", json={"email": "test@example.com", "password": "wrong"}
+        "/login", json={"email": "moderator@example.com", "password": "wrongpass"}
+    )
+    assert response.status_code == 401
+
+
+def test_login_invalid_email():
+    response = client.post(
+        "/login", json={"email": "employee3@example.com", "password": "123456"}
     )
     assert response.status_code == 401

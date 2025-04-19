@@ -56,3 +56,37 @@
 2025-04-19 03:04:44 - backend - INFO - User logged in: email=test@example.com
 2025-04-19 03:04:44 - backend - INFO - Login attempt: email=test@example.com
 2025-04-19 03:04:45 - backend - WARNING - Login failed: Неверный email или пароль
+2025-04-19 03:16:30 - backend - INFO - Register attempt: email=test@example.com, role=moderator
+2025-04-19 03:16:30 - backend - INFO - User registered: id=ccd9ec9c-3748-4665-9a7e-5ef558317a10
+2025-04-19 03:16:30 - backend - INFO - Login attempt: email=test@example.com
+2025-04-19 03:16:30 - backend - INFO - User logged in: email=test@example.com
+2025-04-19 03:16:30 - backend - INFO - Login attempt: email=test@example.com
+2025-04-19 03:16:30 - backend - WARNING - Login failed: Неверный email или пароль
+2025-04-19 03:16:48 - backend - INFO - Register attempt: email=test@example.com, role=moderator
+2025-04-19 03:16:48 - backend - INFO - User registered: id=ecc9322b-667a-470c-a06d-f0eca6669600
+2025-04-19 03:16:48 - backend - INFO - Login attempt: email=test@example.com
+2025-04-19 03:16:48 - backend - INFO - User logged in: email=test@example.com
+2025-04-19 03:16:48 - backend - INFO - Login attempt: email=test@example.com
+2025-04-19 03:16:48 - backend - WARNING - Login failed: Неверный email или пароль
+2025-04-19 03:17:02 - backend - INFO - Register attempt: email=test@example.com, role=moderator
+2025-04-19 03:17:02 - backend - INFO - User registered: id=bbf1fcf9-681a-45c3-9642-2d3875979810
+2025-04-19 03:17:02 - backend - INFO - Login attempt: email=test@example.com
+2025-04-19 03:17:02 - backend - INFO - User logged in: email=test@example.com
+2025-04-19 03:17:02 - backend - INFO - Login attempt: email=test@example.com
+2025-04-19 03:17:02 - backend - WARNING - Login failed: Неверный email или пароль
+2025-04-19 03:21:23 - backend - INFO - Register attempt: email=test@example.com, role=moderator
+2025-04-19 03:21:24 - backend - INFO - User registered: id=7b44ef39-ef31-4a58-8895-70d9a5e57755
+2025-04-19 03:21:24 - backend - INFO - Login attempt: email=test@example.com
+2025-04-19 03:21:24 - backend - INFO - User logged in: email=test@example.com
+2025-04-19 03:21:24 - backend - INFO - Login attempt: email=test@example.com
+2025-04-19 03:21:24 - backend - WARNING - Login failed: Неверный email или пароль
+2025-04-19 12:16:06 - backend - INFO - Register attempt: email=user@example.com, role=moderator
+2025-04-19 12:16:06 - backend - INFO - User registered: id=f7853f29-70f4-4fb7-a4b3-ab435d69d264
+2025-04-19 12:16:09 - backend - INFO - Register attempt: email=user@example.com, role=moderator
+2025-04-19 12:16:09 - backend - WARNING - Register failed: Email уже зарегистрирован
+2025-04-19 12:17:09 - backend - INFO - Register attempt: email=us3232er@example.com, role=moderat233or
+2025-04-19 12:17:09 - backend - WARNING - Register failed: Недопустимая роль. Допустимые значения: 'employee', 'moderator'
+2025-04-19 12:17:55 - backend - INFO - Login attempt: email=user@example.com
+2025-04-19 12:17:55 - backend - INFO - User logged in: email=user@example.com
+2025-04-19 12:17:58 - backend - INFO - Login attempt: email=user@example.com
+2025-04-19 12:17:58 - backend - WARNING - Login failed: Неверный email или пароль
