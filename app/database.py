@@ -2,6 +2,7 @@ import psycopg2
 from datetime import datetime
 from typing import List
 from app.config import settings
+from app.logger import logger
 
 
 def get_db():
@@ -35,7 +36,7 @@ def init_db():
 
         cur.execute(sql_script)
         conn.commit()
-        print("Таблицы успешно созданы!")
+        logger.info("БД инициализирована")
 
     except Exception as e:
         print(f"Ошибка при создании таблиц: {e}")

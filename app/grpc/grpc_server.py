@@ -53,11 +53,10 @@ def serve():
     server.add_insecure_port("[::]:3000")
     server.start()
 
-    print("gRPC Server running on port 3000")
+    logger.info("gRPC сервер запущен на порте 3000")
 
     def stop(signum, frame):
-        logger.info("Shutting down gRPC server...")
-        print("Shutting down gRPC server...")
+        logger.info("Остановка gRPC сервера...")
         server.stop(0)
         os._exit(0)
 

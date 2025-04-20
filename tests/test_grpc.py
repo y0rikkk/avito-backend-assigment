@@ -4,15 +4,7 @@ import psycopg2
 from concurrent import futures
 from app.grpc.pvz_v1 import pvz_pb2, pvz_pb2_grpc
 from app.grpc.grpc_server import PVZService
-from app.logger import logger
 from app.security import settings
-
-
-@pytest.fixture(autouse=True)
-def disable_app_logger():
-    logger.disabled = True
-    yield
-    logger.disabled = False
 
 
 @pytest.fixture(scope="module")

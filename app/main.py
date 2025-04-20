@@ -38,7 +38,7 @@ def save_openapi_spec():
     )
     with open("openapi.json", "w", encoding="utf-8") as f:
         json.dump(openapi_schema, f, indent=2, ensure_ascii=False)
-        print("Документация API обновлена")
+        logger.info("Документация openapi.json обновлена")
 
 
 @asynccontextmanager
@@ -47,7 +47,9 @@ async def lifespan(app: FastAPI):
     save_openapi_spec()
     grpc_process = multiprocessing.Process(target=run_grpc_server)
     grpc_process.start()
+    logger.info("Приложение запущено")
     yield
+    logger.info("Приложение остановлено")
 
 
 app = FastAPI(lifespan=lifespan)
