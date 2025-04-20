@@ -16,6 +16,8 @@ httpx = "*"
 requests = "*"
 prometheus-fastapi-instrumentator = "*"
 prometheus-client = "*"
+grpcio = "*"
+grpcio-tools = "*"
 
 [dev-packages]
 pytest-cov = "*"

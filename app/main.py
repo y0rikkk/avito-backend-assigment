@@ -7,6 +7,7 @@ from prometheus_fastapi_instrumentator import Instrumentator, metrics
 from prometheus_client import make_asgi_app, start_http_server
 import uuid
 import json
+import multiprocessing
 from datetime import datetime, timezone
 from typing import Optional
 from app.config import settings
@@ -22,6 +23,7 @@ from app.security import *
 from app.schemas import *
 from app.metrics import *
 from app.logger import logger
+from app.grpc.grpc_server import serve as run_grpc_server
 
 
 security = HTTPBearer()
@@ -43,6 +45,8 @@ def save_openapi_spec():
 async def lifespan(app: FastAPI):
     init_db()
     save_openapi_spec()
+    grpc_process = multiprocessing.Process(target=run_grpc_server)
+    grpc_process.start()
     yield
 
 

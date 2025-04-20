@@ -43,6 +43,15 @@
           "start htmlcov/index.html"
         ],
         "joinOperator": ";"
+      },
+      {
+        "name": "grpc server",
+        "autoExecuteCommands": false,
+        "icon": "server-process",
+        "color": "terminal.ansiMagenta",
+        "commands": [
+          "python -m app.grpc.grpc_server"
+        ]
       }
     ]
   }
