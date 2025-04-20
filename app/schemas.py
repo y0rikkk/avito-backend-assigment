@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, SkipValidation
+from uuid import UUID
 from datetime import datetime
 from typing import Literal, List
 
@@ -18,7 +19,7 @@ class UserRegister(BaseModel):
 
 
 class User(BaseModel):
-    id: str
+    id: UUID
     email: str
     role: str
 
@@ -37,32 +38,32 @@ class PVZCreate(BaseModel):
 
 
 class PVZ(BaseModel):
-    id: str  # UUID в виде строки
+    id: UUID  # UUID в виде строки
     registration_date: datetime
     city: str
 
 
 class ReceptionCreate(BaseModel):
-    pvz_id: str  # UUID ПВЗ в виде строки
+    pvz_id: UUID  # UUID ПВЗ в виде строки
 
 
 class Reception(BaseModel):
-    id: str
+    id: UUID
     date_time: datetime
-    pvz_id: str
+    pvz_id: UUID
     status: str  # "in_progress" или "close"
 
 
 class ProductCreate(BaseModel):
     type: Literal["электроника", "одежда", "обувь"]
-    pvz_id: str  # UUID ПВЗ в виде строки
+    pvz_id: UUID  # UUID ПВЗ в виде строки
 
 
 class Product(BaseModel):
-    id: str
+    id: UUID
     date_time: datetime
     type: str
-    reception_id: str
+    reception_id: UUID
 
 
 # Следующие 3 класса - для эндпоинта /pvz (GET)

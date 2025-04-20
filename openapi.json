@@ -376,6 +376,7 @@
             "required": true,
             "schema": {
               "type": "string",
+              "format": "uuid",
               "title": "Pvz Id"
             }
           }
@@ -438,6 +439,7 @@
             "required": true,
             "schema": {
               "type": "string",
+              "format": "uuid",
               "title": "Pvz Id"
             }
           }
@@ -632,6 +634,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "uuid",
             "title": "Id"
           },
           "registration_date": {
@@ -689,6 +692,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "uuid",
             "title": "Id"
           },
           "date_time": {
@@ -702,6 +706,7 @@
           },
           "reception_id": {
             "type": "string",
+            "format": "uuid",
             "title": "Reception Id"
           }
         },
@@ -727,6 +732,7 @@
           },
           "pvz_id": {
             "type": "string",
+            "format": "uuid",
             "title": "Pvz Id"
           }
         },
@@ -741,6 +747,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "uuid",
             "title": "Id"
           },
           "date_time": {
@@ -750,6 +757,7 @@
           },
           "pvz_id": {
             "type": "string",
+            "format": "uuid",
             "title": "Pvz Id"
           },
           "status": {
@@ -770,6 +778,7 @@
         "properties": {
           "pvz_id": {
             "type": "string",
+            "format": "uuid",
             "title": "Pvz Id"
           }
         },
@@ -816,6 +825,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "format": "uuid",
             "title": "Id"
           },
           "email": {

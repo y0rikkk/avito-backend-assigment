@@ -12,6 +12,11 @@ DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 LOG_FILE = LOG_DIR / f"backend_{datetime.now().strftime('%Y-%m-%d')}.log"
 
 
+class ErrorFilter(logging.Filter):
+    def filter(self, record):
+        return record.levelno >= logging.ERROR
+
+
 def setup_logger():
     logger = logging.getLogger("backend")
     logger.setLevel(logging.INFO)
@@ -24,9 +29,23 @@ def setup_logger():
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
+    console_handler.addFilter(ErrorFilter())
     logger.addHandler(console_handler)
 
     return logger
 
 
 logger = setup_logger()
+
+
+def log_exceptions(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    logger.critical(
+        "Непредвиденная ошибка logger", exc_info=(exc_type, exc_value, exc_traceback)
+    )
+
+
+sys.excepthook = log_exceptions

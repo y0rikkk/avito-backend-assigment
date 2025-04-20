@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends, Query, status
+from fastapi import FastAPI, HTTPException, Depends, Query, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
 from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 from jose import jwt
@@ -24,6 +25,10 @@ from app.schemas import *
 from app.metrics import *
 from app.logger import logger
 from app.grpc.grpc_server import serve as run_grpc_server
+
+import psycopg2.extras
+
+psycopg2.extras.register_uuid()
 
 
 security = HTTPBearer()
@@ -77,6 +82,35 @@ app.mount("/metrics", metrics_app)
 start_http_server(9000)
 
 
+@app.middleware("http")
+async def log_errors(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        logger.critical(
+            f"Непредвиденная ошибка: {request.method} {request.url.path}", exc_info=True
+        )
+        raise
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    if exc.status_code >= 400 and exc.status_code < 500:
+        logger.warning(
+            f"HTTPException: {exc.status_code} - {exc.detail} at {request.method} {request.url.path}"
+        )
+    if exc.status_code >= 500:
+        logger.error(
+            f"HTTPException: {exc.status_code} - {exc.detail} at {request.method} {request.url.path}",
+            exc_info=True,
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
 def get_current_role(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         token = credentials.credentials
@@ -90,6 +124,7 @@ def get_current_role(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 @app.get("/")
 async def home():
+    raise HTTPException(status_code=500, detail="ОШИБКА НА СЕРВЕРЕ!!!11!!")
     return "hello world"
 
 
@@ -142,7 +177,7 @@ def create_pvz(
         conn = connection
         cur = conn.cursor()
 
-        pvz_id = str(uuid.uuid4())
+        pvz_id = uuid.uuid4()
         registration_date = datetime.now(timezone.utc)
 
         cur.execute(
@@ -162,7 +197,7 @@ def create_pvz(
     except Exception as e:
         if conn:
             conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500)
 
 
 @app.post(
@@ -186,14 +221,14 @@ def create_reception(
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
-    if has_active_reception(connection, reception_data.pvz_id):
-        raise HTTPException(
-            status_code=400,
-            detail="В этом ПВЗ уже есть активная приёмка. Закройте её перед созданием новой.",
-        )
-
     conn = None
     try:
+        if has_active_reception(connection, reception_data.pvz_id):
+            raise HTTPException(
+                status_code=400,
+                detail="В этом ПВЗ уже есть активная приёмка или неверный запрос.",
+            )
+
         conn = connection
         cur = conn.cursor()
 
@@ -219,12 +254,13 @@ def create_reception(
             "status": result[3],
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
         if conn:
             conn.rollback()
-        raise HTTPException(
-            status_code=500, detail=f"Ошибка при создании приёмки: {str(e)}"
-        )
+        raise HTTPException(status_code=500)
 
 
 @app.post(
@@ -248,15 +284,15 @@ def add_product(
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
-    reception_id = get_active_reception_id(connection, product_data.pvz_id)
-    if not reception_id:
-        raise HTTPException(
-            status_code=400,
-            detail="В этом ПВЗ нет активной приёмки. Сначала создайте её.",
-        )
-
     conn = None
     try:
+        reception_id = get_active_reception_id(connection, product_data.pvz_id)
+        if not reception_id:
+            raise HTTPException(
+                status_code=400,
+                detail="В этом ПВЗ нет активной приёмки или неверный запрос.",
+            )
+
         conn = connection
         cur = conn.cursor()
 
@@ -282,12 +318,13 @@ def add_product(
             "reception_id": result[3],
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
         if conn:
             conn.rollback()
-        raise HTTPException(
-            status_code=500, detail=f"Ошибка при добавлении товара: {str(e)}"
-        )
+        raise HTTPException(status_code=500)
 
 
 @app.post(
@@ -303,22 +340,22 @@ def add_product(
     },
 )
 def delete_last_product(
-    pvz_id: str,
+    pvz_id: UUID,
     connection=Depends(get_db),
     role: str = Depends(get_current_role),
 ):
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
-    product_id = get_last_product_id(connection, pvz_id)
-    if not product_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Нет товаров для удаления или отсутствует активная приёмка",
-        )
-
     conn = None
     try:
+        product_id = get_last_product_id(connection, pvz_id)
+        if not product_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Неверный запрос, нет активной приемки или нет товаров для удаления",
+            )
+
         conn = connection
         cur = conn.cursor()
         cur.execute("DELETE FROM products WHERE id = %s RETURNING id", (product_id,))
@@ -330,12 +367,13 @@ def delete_last_product(
 
         return {"message": f"Товар {deleted[0]} удалён"}
 
+    except HTTPException:
+        raise
+
     except Exception as e:
         if conn:
             conn.rollback()
-        raise HTTPException(
-            status_code=500, detail=f"Ошибка при удалении товара: {str(e)}"
-        )
+        raise HTTPException(status_code=500)
 
 
 @app.post(
@@ -349,19 +387,21 @@ def delete_last_product(
     },
 )
 def close_last_reception(
-    pvz_id: str,
+    pvz_id: UUID,
     connection=Depends(get_db),
     role: str = Depends(get_current_role),
 ):
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
-    reception_id = get_active_reception_id(connection, pvz_id)
-    if not reception_id:
-        raise HTTPException(status_code=400, detail="Нет активной приёмки для закрытия")
-
     conn = None
     try:
+        reception_id = get_active_reception_id(connection, pvz_id)
+        if not reception_id:
+            raise HTTPException(
+                status_code=400, detail="Неверный запрос или приемка уже закрыта"
+            )
+
         conn = connection
         cur = conn.cursor()
 
@@ -387,12 +427,13 @@ def close_last_reception(
             "status": result[3],
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
         if conn:
             conn.rollback()
-        raise HTTPException(
-            status_code=500, detail=f"Ошибка при закрытии приёмки: {str(e)}"
-        )
+        raise HTTPException(status_code=500)
 
 
 @app.get(
@@ -408,16 +449,18 @@ def list_pvz(
     end_date: Optional[datetime] = Query(None, description="Конечная дата диапазона"),
     page: int = Query(1, ge=1, description="Номер страницы"),
     limit: int = Query(10, ge=1, le=30, description="Количество элементов на странице"),
-    role: str = Depends(get_current_role),  # Проверка авторизации
+    role: str = Depends(get_current_role),
 ):
 
     if role != "moderator" and role != "employee":
         raise HTTPException(
             status_code=403, detail="Только для модераторов и сотрудников"
         )
-
-    pvz_data = get_pvz_list(connection, start_date, end_date, page, limit)
-    return pvz_data
+    try:
+        pvz_data = get_pvz_list(connection, start_date, end_date, page, limit)
+        return pvz_data
+    except Exception as e:
+        raise HTTPException(status_code=500)
 
 
 @app.post(
@@ -463,17 +506,17 @@ def register_user(user_data: UserRegister, connection=Depends(get_db)):
         result = cur.fetchone()
         conn.commit()
 
-        logger.info(f"User registered: id={result[0]}")
+        logger.info(f"Пользователь зарегистрировался: id={result[0]}")
         return {"id": result[0], "email": result[1], "role": result[2]}
 
     except HTTPException as e:
-        logger.warning(f"Register failed: {e.detail}")
+        logger.warning(f"Неудачная регистрация: {e.detail}")
         raise
     except Exception as e:
         if conn:
             conn.rollback()
-        logger.error(f"Register error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка при регистрации: {str(e)}")
+        logger.error(f"Ошибка при регистрации: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500)
 
 
 @app.post(
@@ -504,7 +547,7 @@ def login_user(user_data: UserLogin, connection=Depends(get_db)):
 
         # Генерируем JWT-токен
         token_data = {
-            "sub": user[0],  # user_id
+            "sub": str(user[0]),  # user_id
             "role": user[3],  # role
             "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
         }
@@ -512,13 +555,13 @@ def login_user(user_data: UserLogin, connection=Depends(get_db)):
             token_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM
         )
 
-        logger.info(f"User logged in: email={user_data.email}")
+        logger.info(f"Пользователь залогинился: email={user_data.email}")
         # return {"access_token": token, "token_type": "bearer"}
         return {"token": token}
 
     except HTTPException as e:
-        logger.warning(f"Login failed: {e.detail}")
+        logger.warning(f"Неудачный логин: {e.detail}")
         raise
     except Exception as e:
-        logger.error(f"Login error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка при авторизации: {str(e)}")
+        logger.error(f"Ошибка при логине: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500)

@@ -29,7 +29,7 @@ class PVZService(pvz_pb2_grpc.PVZServiceServicer):
             response = pvz_pb2.GetPVZListResponse()
             for row in rows:
                 pvz = response.pvzs.add()
-                pvz.id = row[0]
+                pvz.id = str(row[0])
 
                 timestamp = Timestamp()
                 timestamp.FromDatetime(row[1])
@@ -40,6 +40,9 @@ class PVZService(pvz_pb2_grpc.PVZServiceServicer):
             return response
 
         except Exception as e:
+            logger.error(
+                "Ошибка при выполнении gRPC запроса GetPVZList ", exc_info=True
+            )
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"Error: {str(e)}")
             return pvz_pb2.GetPVZListResponse()

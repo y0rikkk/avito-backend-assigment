@@ -4,6 +4,10 @@ from typing import List
 from app.config import settings
 from app.logger import logger
 
+import psycopg2.extras
+
+psycopg2.extras.register_uuid()
+
 
 def get_db():
     conn = psycopg2.connect(
@@ -45,23 +49,25 @@ def init_db():
             conn.close()
 
 
-def has_active_reception(connection, pvz_id: str) -> bool:
+def has_active_reception(connection, pvz_id) -> bool:
     """Проверяет, есть ли у ПВЗ активная приёмка (in_progress)."""
     conn = None
     try:
         conn = connection
         cur = conn.cursor()
         cur.execute(
-            "SELECT EXISTS (SELECT 1 FROM receptions WHERE pvz_id = %s AND status = 'in_progress')",
+            "(SELECT 1 FROM receptions WHERE pvz_id = %s AND status = 'in_progress')",
             (pvz_id,),
         )
-        return cur.fetchone()[0]
+        if cur.fetchone():
+            return True
+        return False
     except Exception as e:
-        print(f"Ошибка при проверке активной приёмки: {e}")  # TODO поменять
-        return True  # В случае ошибки считаем, что приёмка есть (для безопасности)
+        logger.error(f"Ошибка при проверке активной приёмки: {e}")
+        raise
 
 
-def get_active_reception_id(connection, pvz_id: str) -> str | None:
+def get_active_reception_id(connection, pvz_id) -> str | None:
     """Возвращает ID активной приёмки (in_progress) для указанного ПВЗ или None."""
     conn = None
     try:
@@ -74,11 +80,11 @@ def get_active_reception_id(connection, pvz_id: str) -> str | None:
         result = cur.fetchone()
         return result[0] if result else None
     except Exception as e:
-        print(f"Ошибка при поиске активной приёмки: {e}")
-        return None
+        logger.error(f"Ошибка при поиске активной приёмки: {e}")
+        raise
 
 
-def get_last_product_id(connection, pvz_id: str) -> str | None:
+def get_last_product_id(connection, pvz_id) -> str | None:
     """Возвращает ID последнего добавленного товара в активной приёмке ПВЗ или None."""
     conn = None
     try:
@@ -98,8 +104,8 @@ def get_last_product_id(connection, pvz_id: str) -> str | None:
         result = cur.fetchone()
         return result[0] if result else None
     except Exception as e:
-        print(f"Ошибка при поиске последнего товара: {e}")
-        return None
+        logger.error(f"Ошибка при поиске последнего товара: {e}")
+        raise
 
 
 def get_pvz_list(
@@ -216,5 +222,5 @@ def get_pvz_list(
         return result
 
     except Exception as e:
-        print(f"Ошибка при получении списка ПВЗ: {e}")
-        return []
+        logger.error(f"Ошибка при получении списка ПВЗ: {e}")
+        raise
