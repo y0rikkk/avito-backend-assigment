@@ -4,32 +4,56 @@ import subprocess
 import shutil
 
 
+class MyException(Exception):
+    pass
+
+
 def generate_dto(input_file="openapi.json"):
+    # cmd = [
+    #     "docker",
+    #     "run",
+    #     "--rm",
+    #     "-v",
+    #     ".:/local",
+    #     "openapitools/openapi-generator-cli",
+    #     "generate",
+    #     "-i",
+    #     f"/local/{input_file}",
+    #     "-g",
+    #     "python",
+    #     "-o",
+    #     "/local/generated",
+    #     "--additional-properties=packageName=api_dto",
+    # ]
+
     cmd = [
-        "docker",
-        "run",
-        "--rm",
-        "-v",
-        ".:/local",
-        "openapitools/openapi-generator-cli",
+        "openapi-generator-cli",
         "generate",
         "-i",
-        f"/local/{input_file}",
+        input_file,
         "-g",
         "python",
         "-o",
-        "/local/generated",
+        "./generated",
         "--additional-properties=packageName=api_dto",
     ]
 
     if Path("generated").exists():
         shutil.rmtree("generated")
 
-    Path("generated").mkdir(exist_ok=True)
+    # Path("generated").mkdir(exist_ok=True)
 
     try:
-        subprocess.run(cmd, check=True)
+        process = subprocess.run(cmd, check=True, capture_output=True)
+        if "[error] Check the path of the OpenAPI spec and try again." in str(
+            process.stderr
+        ):
+            raise MyException()
         print(f"DTO успешно сгенерированы из файла {input_file}")
+    except MyException:
+        print(
+            f"Файл {input_file} не найден. Убедитесь, что вы вызываете скрипт из той же директории, где находится этот файл."
+        )
     except subprocess.CalledProcessError as e:
         print(f"Ошибка генерации: {e}")
     except FileNotFoundError:

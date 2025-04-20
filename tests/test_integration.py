@@ -25,7 +25,7 @@ def clean_db():
     )
     cur = conn.cursor()
 
-    with open("tests/init_test_db.sql", "r") as f:
+    with open("tests/init_test_db.sql", "r", encoding="CP1251") as f:
         sql_script = f.read()
 
     cur.execute(sql_script)

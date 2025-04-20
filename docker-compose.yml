@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: pvz_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pvz_db"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: .
+    ports:
+      - "8080:8080"
+      - "3000:3000"
+      - "9000:9000"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
+      - DB_NAME=pvz_db
+      - TEST_DB_HOST=postgres
+      - TEST_DB_PORT=5432
+      - TEST_DB_USER=postgres
+      - TEST_DB_PASSWORD=admin
+      - TEST_DB_NAME=pvz_test_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - .\app\prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

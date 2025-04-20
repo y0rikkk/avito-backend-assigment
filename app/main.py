@@ -5,7 +5,7 @@ from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 from jose import jwt
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
-from prometheus_client import make_asgi_app, start_http_server
+from prometheus_client import start_http_server
 import uuid
 import json
 import multiprocessing
@@ -50,6 +50,8 @@ def save_openapi_spec():
 async def lifespan(app: FastAPI):
     init_db()
     save_openapi_spec()
+    start_http_server(9000)
+    logger.info("Сервер с метриками на порту 9000 запущен")
     grpc_process = multiprocessing.Process(target=run_grpc_server)
     grpc_process.start()
     logger.info("Приложение запущено")
@@ -76,10 +78,6 @@ instrumentator.add(
     )
 )
 instrumentator.instrument(app)
-
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
-start_http_server(9000)
 
 
 @app.middleware("http")
@@ -120,12 +118,6 @@ def get_current_role(credentials: HTTPAuthorizationCredentials = Depends(securit
         return payload["role"]
     except:
         raise HTTPException(status_code=403, detail="Доступ запрещён")
-
-
-@app.get("/")
-async def home():
-    raise HTTPException(status_code=500, detail="ОШИБКА НА СЕРВЕРЕ!!!11!!")
-    return "hello world"
 
 
 @app.post(

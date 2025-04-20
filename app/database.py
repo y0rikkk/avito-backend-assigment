@@ -35,7 +35,7 @@ def init_db():
         )
         cur = conn.cursor()
 
-        with open("app/init_db.sql", "r") as f:
+        with open("app/init_db.sql", "r", encoding="CP1251") as f:
             sql_script = f.read()
 
         cur.execute(sql_script)
@@ -43,7 +43,7 @@ def init_db():
         logger.info("БД инициализирована")
 
     except Exception as e:
-        print(f"Ошибка при создании таблиц: {e}")
+        logger.error(f"Ошибка при создании таблиц: {e}")
     finally:
         if conn:
             conn.close()

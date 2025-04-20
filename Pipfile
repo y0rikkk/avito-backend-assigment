@@ -18,9 +18,11 @@ prometheus-fastapi-instrumentator = "*"
 prometheus-client = "*"
 grpcio = "*"
 grpcio-tools = "*"
-
-[dev-packages]
+openapi-generator-cli = {extras = ["jdk4py"], version = "*"}
 pytest-cov = "*"
+python-dotenv = "*"
 
 [requires]
 python_version = "3.12"
+
+[dev-packages]

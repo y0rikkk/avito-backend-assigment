@@ -7,3 +7,4 @@ logs/
 tests/__pycache__/
 .coverage
 generated/
+.env
