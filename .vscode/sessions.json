@@ -22,7 +22,8 @@
         "color": "terminal.ansiBlue",
         "commands": [
           "uvicorn app.main:app --reload --port 8080"
-        ]
+        ],
+        "focus": true
       },
       {
         "name": "pytest",
@@ -45,12 +46,12 @@
         "joinOperator": ";"
       },
       {
-        "name": "grpc server",
+        "name": "grpc client",
         "autoExecuteCommands": false,
         "icon": "server-process",
         "color": "terminal.ansiMagenta",
         "commands": [
-          "python -m app.grpc.grpc_server"
+          "python -m app.grpc.grpc_client"
         ]
       }
     ]
