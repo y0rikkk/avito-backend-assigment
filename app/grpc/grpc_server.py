@@ -1,9 +1,12 @@
 from concurrent import futures
 import grpc
+import signal
+import os
+import psycopg2
 from google.protobuf.timestamp_pb2 import Timestamp
 from app.grpc.pvz_v1 import pvz_pb2, pvz_pb2_grpc
 from app.security import settings
-import psycopg2
+from app.logger import logger
 
 # python -m grpc_tools.protoc -I app/grpc/pvz_v1 --python_out=app/grpc/pvz_v1 --grpc_python_out=app/grpc/pvz_v1 app/grpc/pvz_v1/pvz.proto
 
@@ -43,11 +46,24 @@ class PVZService(pvz_pb2_grpc.PVZServiceServicer):
 
 
 def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10), options=(("grpc.so_reuseport", 0),)
+    )
     pvz_pb2_grpc.add_PVZServiceServicer_to_server(PVZService(), server)
     server.add_insecure_port("[::]:3000")
     server.start()
+
     print("gRPC Server running on port 3000")
+
+    def stop(signum, frame):
+        logger.info("Shutting down gRPC server...")
+        print("Shutting down gRPC server...")
+        server.stop(0)
+        os._exit(0)
+
+    signal.signal(signal.SIGINT, stop)
+    signal.signal(signal.SIGTERM, stop)
+
     server.wait_for_termination()
 
 
