@@ -5,22 +5,6 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/": {
-      "get": {
-        "summary": "Home",
-        "operationId": "home__get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/dummyLogin": {
       "post": {
         "summary": "Dummy Login",
@@ -644,6 +628,11 @@
           },
           "city": {
             "type": "string",
+            "enum": [
+              "Москва",
+              "Санкт-Петербург",
+              "Казань"
+            ],
             "title": "City"
           }
         },
@@ -659,6 +648,11 @@
         "properties": {
           "city": {
             "type": "string",
+            "enum": [
+              "Москва",
+              "Санкт-Петербург",
+              "Казань"
+            ],
             "title": "City"
           }
         },
@@ -702,6 +696,11 @@
           },
           "type": {
             "type": "string",
+            "enum": [
+              "электроника",
+              "одежда",
+              "обувь"
+            ],
             "title": "Type"
           },
           "reception_id": {
@@ -762,6 +761,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "in_progress",
+              "close"
+            ],
             "title": "Status"
           }
         },
@@ -830,10 +833,15 @@
           },
           "email": {
             "type": "string",
+            "format": "email",
             "title": "Email"
           },
           "role": {
             "type": "string",
+            "enum": [
+              "employee",
+              "moderator"
+            ],
             "title": "Role"
           }
         },
@@ -877,6 +885,10 @@
           },
           "role": {
             "type": "string",
+            "enum": [
+              "employee",
+              "moderator"
+            ],
             "title": "Role"
           }
         },

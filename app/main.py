@@ -276,6 +276,13 @@ def add_product(
     if role != "employee":
         raise HTTPException(status_code=403, detail="Только для сотрудников ПВЗ")
 
+    allowed_types = ["электроника", "одежда", "обувь"]
+    if product_data.type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Недопустимый тип продукта. Допустимые значения: {', '.join(allowed_types)}",
+        )
+
     conn = None
     try:
         reception_id = get_active_reception_id(connection, product_data.pvz_id)
@@ -354,9 +361,6 @@ def delete_last_product(
         deleted = cur.fetchone()
         conn.commit()
 
-        # if not deleted:
-        #     raise HTTPException(status_code=404, detail="Товар не найден")
-
         return {"message": f"Товар {deleted[0]} удалён"}
 
     except HTTPException:
@@ -408,9 +412,6 @@ def close_last_reception(
         )
         result = cur.fetchone()
         conn.commit()
-
-        # if not result:
-        #     raise HTTPException(status_code=404, detail="Приёмка не найдена")
 
         return {
             "id": result[0],
@@ -471,7 +472,6 @@ def register_user(user_data: UserRegister, connection=Depends(get_db)):
         conn = connection
         cur = conn.cursor()
 
-        # Проверяем, что email уникален
         cur.execute("SELECT id FROM users WHERE email = %s", (user_data.email,))
         if cur.fetchone():
             raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
@@ -482,10 +482,8 @@ def register_user(user_data: UserRegister, connection=Depends(get_db)):
                 detail="Недопустимая роль. Допустимые значения: 'employee', 'moderator'",
             )
 
-        # Хешируем пароль
         hashed_password = hash_password(user_data.password)
 
-        # Сохраняем пользователя
         user_id = str(uuid.uuid4())
         cur.execute(
             """
@@ -527,7 +525,6 @@ def login_user(user_data: UserLogin, connection=Depends(get_db)):
         conn = connection
         cur = conn.cursor()
 
-        # Ищем пользователя по email
         cur.execute(
             "SELECT id, email, password_hash, role FROM users WHERE email = %s",
             (user_data.email,),
@@ -537,10 +534,9 @@ def login_user(user_data: UserLogin, connection=Depends(get_db)):
         if not user or not verify_password(user_data.password, user[2]):
             raise HTTPException(status_code=401, detail="Неверный email или пароль")
 
-        # Генерируем JWT-токен
         token_data = {
-            "sub": str(user[0]),  # user_id
-            "role": user[3],  # role
+            "sub": str(user[0]),
+            "role": user[3],
             "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
         }
         token = jwt.encode(
@@ -548,7 +544,6 @@ def login_user(user_data: UserLogin, connection=Depends(get_db)):
         )
 
         logger.info(f"Пользователь залогинился: email={user_data.email}")
-        # return {"access_token": token, "token_type": "bearer"}
         return {"token": token}
 
     except HTTPException as e:

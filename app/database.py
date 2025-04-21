@@ -50,11 +50,19 @@ def init_db():
 
 
 def has_active_reception(connection, pvz_id) -> bool:
-    """Проверяет, есть ли у ПВЗ активная приёмка (in_progress)."""
     conn = None
     try:
         conn = connection
         cur = conn.cursor()
+
+        cur.execute(
+            "(SELECT 1 FROM pvz WHERE id = %s LIMIT 1)",
+            (pvz_id,),
+        )
+
+        if not cur.fetchone():  # Здесь мы возвращаем True если ПВЗ не существует и
+            return True  # обрабатываем это на эндпоинте в соответствии с документацией
+
         cur.execute(
             "(SELECT 1 FROM receptions WHERE pvz_id = %s AND status = 'in_progress')",
             (pvz_id,),
@@ -68,7 +76,6 @@ def has_active_reception(connection, pvz_id) -> bool:
 
 
 def get_active_reception_id(connection, pvz_id) -> str | None:
-    """Возвращает ID активной приёмки (in_progress) для указанного ПВЗ или None."""
     conn = None
     try:
         conn = connection
@@ -85,7 +92,6 @@ def get_active_reception_id(connection, pvz_id) -> str | None:
 
 
 def get_last_product_id(connection, pvz_id) -> str | None:
-    """Возвращает ID последнего добавленного товара в активной приёмке ПВЗ или None."""
     conn = None
     try:
         conn = connection
@@ -115,13 +121,11 @@ def get_pvz_list(
     page: int = 1,
     limit: int = 10,
 ) -> List[dict]:
-    """Возвращает список ПВЗ с приёмками и товарами, учитывая фильтры и пагинацию."""
     conn = None
     try:
         conn = connection
         cur = conn.cursor()
 
-        # Базовый запрос
         query = """
         SELECT 
             pvz.id AS pvz_id,
@@ -138,7 +142,6 @@ def get_pvz_list(
         LEFT JOIN products pr ON r.id = pr.reception_id
         """
 
-        # Условия фильтрации
         conditions = []
         params = []
 
@@ -152,7 +155,6 @@ def get_pvz_list(
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        # Сортировка и пагинация
         query += """
         ORDER BY pvz.registration_date DESC, r.date_time DESC
         LIMIT %s OFFSET %s
@@ -162,7 +164,6 @@ def get_pvz_list(
         cur.execute(query, params)
         rows = cur.fetchall()
 
-        # Группировка данных
         result = []
         current_pvz = None
         current_reception = None
@@ -180,7 +181,6 @@ def get_pvz_list(
                 product_type,
             ) = row
 
-            # Если это новый ПВЗ
             if not current_pvz or current_pvz["pvz"]["id"] != pvz_id:
                 current_pvz = {
                     "pvz": {
@@ -192,7 +192,6 @@ def get_pvz_list(
                 }
                 result.append(current_pvz)
 
-            # Если есть приёмка и она новая
             if reception_id and (
                 not current_reception
                 or current_reception["reception"]["id"] != reception_id
@@ -208,7 +207,6 @@ def get_pvz_list(
                 }
                 current_pvz["receptions"].append(current_reception)
 
-            # Если есть товар
             if product_id:
                 current_reception["products"].append(
                     {

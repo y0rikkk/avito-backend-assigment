@@ -15,7 +15,6 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def clean_db():
-    """Фикстура для очистки всех таблиц после теста."""
     conn = psycopg2.connect(
         host=settings.TEST_DB_HOST,
         port=settings.TEST_DB_PORT,
@@ -34,7 +33,6 @@ def clean_db():
 
 
 def test_full_reception_flow(moderator_token, employee_token):
-    # Создаём ПВЗ
     pvz_response = client.post(
         "/pvz",
         json={"city": "Москва"},
@@ -43,7 +41,6 @@ def test_full_reception_flow(moderator_token, employee_token):
     assert pvz_response.status_code == 201
     pvz_id = pvz_response.json()["id"]
 
-    # Создаём приёмку
     reception_response = client.post(
         "/receptions",
         json={"pvz_id": pvz_id},
@@ -51,9 +48,7 @@ def test_full_reception_flow(moderator_token, employee_token):
     )
     assert reception_response.status_code == 201
 
-    # Добавляем 50 товаров
     for i in range(50):
-        # product_type = "электроника" if i % 2 == 0 else "одежда"
         product_type = ["электроника", "одежда", "обувь"][i % 3]
         response = client.post(
             "/products",
@@ -62,7 +57,6 @@ def test_full_reception_flow(moderator_token, employee_token):
         )
         assert response.status_code == 201
 
-    # Закрываем приёмку
     close_response = client.post(
         f"/pvz/{pvz_id}/close_last_reception",
         headers={"Authorization": f"Bearer {employee_token}"},
@@ -70,7 +64,6 @@ def test_full_reception_flow(moderator_token, employee_token):
     assert close_response.status_code == 200
     assert close_response.json()["status"] == "close"
 
-    # Проверяем, что приёмка закрыта
     date = datetime.date.today()
     url = f"/pvz?start_date={date}&page=1&limit=30"
     db_response = client.get(

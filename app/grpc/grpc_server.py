@@ -8,8 +8,6 @@ from app.grpc.pvz_v1 import pvz_pb2, pvz_pb2_grpc
 from app.security import settings
 from app.logger import logger
 
-# python -m grpc_tools.protoc -I app/grpc/pvz_v1 --python_out=app/grpc/pvz_v1 --grpc_python_out=app/grpc/pvz_v1 app/grpc/pvz_v1/pvz.proto
-
 
 class PVZService(pvz_pb2_grpc.PVZServiceServicer):
     def GetPVZList(self, request, context):

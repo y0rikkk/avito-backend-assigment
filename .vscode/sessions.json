@@ -53,6 +53,22 @@
         "commands": [
           "python -m app.grpc.grpc_client"
         ]
+      },
+      {
+        "name": "docker-compose",
+        "autoExecuteCommands": false,
+        "icon": "vm-connect",
+        "color": "terminal.ansiCyan",
+        "commands": [
+          "docker-compose up --build"
+        ]
+      },
+      {
+        "name": "git",
+        "autoExecuteCommands": false,
+        "icon": "github-alt",
+        "color": "terminal.ansiBlack",
+        "commands": []
       }
     ]
   }

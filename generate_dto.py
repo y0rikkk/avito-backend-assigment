@@ -41,7 +41,7 @@ def generate_dto(input_file="openapi.json"):
     if Path("generated").exists():
         shutil.rmtree("generated")
 
-    # Path("generated").mkdir(exist_ok=True)
+    Path("generated").mkdir(exist_ok=True)
 
     try:
         process = subprocess.run(cmd, check=True, capture_output=True)

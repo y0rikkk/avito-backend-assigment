@@ -15,13 +15,13 @@ class Error(BaseModel):
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
-    role: str  # "employee" или "moderator"
+    role: SkipValidation[Literal["employee", "moderator"]]
 
 
 class User(BaseModel):
     id: UUID
-    email: str
-    role: str
+    email: EmailStr
+    role: SkipValidation[Literal["employee", "moderator"]]
 
 
 class UserLogin(BaseModel):
@@ -34,39 +34,39 @@ class Token(BaseModel):
 
 
 class PVZCreate(BaseModel):
-    city: str  # "Москва", "Санкт-Петербург" или "Казань"
+    city: SkipValidation[Literal["Москва", "Санкт-Петербург", "Казань"]]
 
 
 class PVZ(BaseModel):
-    id: UUID  # UUID в виде строки
+    id: UUID
     registration_date: datetime
-    city: str
+    city: SkipValidation[Literal["Москва", "Санкт-Петербург", "Казань"]]
 
 
 class ReceptionCreate(BaseModel):
-    pvz_id: UUID  # UUID ПВЗ в виде строки
+    pvz_id: UUID
 
 
 class Reception(BaseModel):
     id: UUID
     date_time: datetime
     pvz_id: UUID
-    status: str  # "in_progress" или "close"
+    status: SkipValidation[Literal["in_progress", "close"]]
 
 
 class ProductCreate(BaseModel):
-    type: Literal["электроника", "одежда", "обувь"]
-    pvz_id: UUID  # UUID ПВЗ в виде строки
+    type: SkipValidation[Literal["электроника", "одежда", "обувь"]]
+    pvz_id: UUID
 
 
 class Product(BaseModel):
     id: UUID
     date_time: datetime
-    type: str
+    type: SkipValidation[Literal["электроника", "одежда", "обувь"]]
     reception_id: UUID
 
 
-# Следующие 3 класса - для эндпоинта /pvz (GET)
+# Следующие 2 класса - для эндпоинта /pvz (GET)
 
 
 class ReceptionNested(BaseModel):

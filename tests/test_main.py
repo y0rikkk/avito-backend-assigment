@@ -14,7 +14,6 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def clean_db():
-    """Фикстура для очистки всех таблиц после теста."""
     conn = psycopg2.connect(
         host=settings.TEST_DB_HOST,
         port=settings.TEST_DB_PORT,

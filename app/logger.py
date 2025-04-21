@@ -44,7 +44,7 @@ def log_exceptions(exc_type, exc_value, exc_traceback):
         return
 
     logger.critical(
-        "Непредвиденная ошибка logger", exc_info=(exc_type, exc_value, exc_traceback)
+        "Непредвиденная ошибка", exc_info=(exc_type, exc_value, exc_traceback)
     )
 
 
