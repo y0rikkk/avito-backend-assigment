@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17
+    build: ./postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
@@ -8,7 +8,6 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d pvz_db"]
@@ -42,7 +41,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - .\app\prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./app/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     depends_on:
