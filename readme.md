@@ -1,8 +1,65 @@
-docker run --rm -v "${PWD}:/local" openapitools/openapi-generator-cli generate -i /local/swagger.yaml -g python -o /local/out/python
-docker exec -it avito-test-backend-1 python generate_dto.py --input swagger.yaml
-docker exec -it avito-test-backend-1 python -m app.grpc.grpc_client
-docker exec -it avito-test-backend-1 pytest -v
-docker exec -it avito-test-backend-1 pytest --cov=app --cov-report=html tests -v ; start htmlcov/index.html
+# Тестовое задание на стажировку авито
 
-python -m grpc_tools.protoc -I app/grpc/pvz_v1 --python_out=app/grpc/pvz_v1 --grpc_python_out=app/grpc/pvz_v1 app/grpc/pvz_v1/pvz.proto
-docker run -d -p 9090:9090 -v .\app\prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus
+## Инструкция по запуску
+
+1. Склонировать репозиторий:
+
+```
+git clone https://github.com/y0rikkk/avito-backend-assigment.git
+cd avito-backend-assigment
+```
+
+2. Запустить docker-compose:
+
+```
+docker-compose up --build
+```
+
+## Что внутри
+
+- Помимо самого бэкэнда и базы данных запускается еще и prometheus сервер. Он уже настроен и готов к использованию по адресу localhost:9090.
+- Сервер запущен на порту 8080.
+- Сервер с метриками запущен на порту 9000 и отдает метрики по адресу localhost:9000/metrics.
+- gRPC сервер запущен на порту 3000.
+
+### Полезные команды
+
+- Для проверки работы gRPC есть клиент, который отправляет запрос GetPVZListRequest:
+
+  ```
+  docker exec -it avito-backend-assigment-backend-1 python -m app.grpc.grpc_client
+  ```
+
+- Запустить тесты:
+
+  ```
+  docker exec -it avito-backend-assigment-backend-1 pytest
+  ```
+
+  Добавьте флаг `--cov=app` чтобы увидеть таблицу покрытия и `--cov-report=html` чтобы сгенерировать отчет в html формате.
+
+- Сгенерировать DTO по схеме:
+
+  ```
+  docker exec -it avito-backend-assigment-backend-1 python generate_dto.py --input имя_файла
+  ```
+
+  По умолчанию генерация происходит из файла openapi.json. Также в проекте лежит файл swagger.yaml из задания, по желанию можно сгенерировать из него.
+
+## Информация о выполненных заданиях
+
+Для выполнения задания был выбран язак Python и фреймворк FastAPI. В качестве СУБД была выбрана PostgreSQL.
+
+- API из задания полностью реализовано, включая эндпоинты /login и /register. Swagger UI доступен по адресу localhost:8080/docs. Openapi документация представлена в файле openapi.json. Есть небольшие отличия от swagger.yaml из задания в силу функционала FastAPI, например, для каждого запроса так или иначе нужна схема, а так же в документации есть схема Validation Error и ответы со статусом 422. Тем не менее, при ошибке валидации возвращается код 400 как и было указано в задании (исключение составляет валидация uuid).
+- Все тесты находятся в директории tests, тестовое покрытие составляет 78% по подсчетам pytest-cov. Фактически - покрытие больше, так как pytest-cov захватывает и сгенерированные gRPC файлы. Для тестов используется отдельная тестовая БД (исключение - тест gRPC).
+- gRPC полностью реализован согласно заданию, написаны и сервер и клиент.
+- Метрики prometheus реализованы согласно заданию.
+- Настроено логирование по всему проекту. Все логи сохраняются в директорию logs, ошибки дополнительно выводятся в консоль.
+- Кодогенерация DTO реализована в виде скрипта generate_dto.py, однако сгенерированный код не встроен в проект.
+- При старте приложения документация в файле openapi.json автоматически обновляется.
+
+## Вопросы, с которыми я столкнулся
+
+Одной из самых больших проблем стало отсуствие возможности привести API идеально к тому виду, который был указан в swagger.yaml, об этом сказано выше. Я старался принимать решения так, чтобы максимально приблизиться к документации из задания.
+
+Другой вопрос - как именно надо было реализовать кодогенерацию DTO. Я не понял, надо ли было встраивать сгенерированный код в проект, поэтому остановился на скрипте, который принимает схему API на вход и генерирует код с помощью openapi-generator. Возвращаясь к проблеме выше - даже если ипользовать сгенированные модели и схемы - документация всё равно не будет совпадать с swagger.yaml в силу особенностей FastAPI.
